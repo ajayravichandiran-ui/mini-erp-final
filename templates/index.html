@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mini ERP Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f4f7f6; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .form-box { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        input, button { padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- User Info & Navigation -->
+        <div style="text-align: right; margin-bottom: 15px;">
+            👤 Logged in as: <b>{{ session['username'] }}</b> ({{ session['role'] }}) | 
+            <a href="/logout" style="color: #dc3545; text-decoration: none; font-weight: bold;">Logout</a>
+        </div>
+        
+        {% if session['role'] == 'Manager' %}
+        <div style="text-align: right; margin-bottom: 15px;">
+            <a href="/suppliers" style="text-decoration: none; color: #6f42c1; font-weight: bold; margin-right: 15px;">Go to Supplier Directory ➡</a>
+            <a href="/finance" style="text-decoration: none; color: #28a745; font-weight: bold;">Go to Finance Dashboard ➡</a>
+        </div>
+        {% endif %}        
+        
+        <h2>📦 Inventory Management</h2>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <a href="/export" style="background-color: #6c757d; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px;">📊 Download Excel Report</a>
+    
+    <!-- Search Form (Uses GET request so the query stays in the URL) -->
+            <form action="/" method="GET" style="display: flex; gap: 5px;">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search products..." style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 250px; margin-top: 0;">
+                <button type="submit" style="background-color: #007bff; padding: 8px 15px; margin-top: 0;">🔍 Search</button>
+                {% if search_query %}
+                <a href="/" style="background-color: #dc3545; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px; display: inline-block;">Clear</a>
+                {% endif %}
+            </form>
+        </div>
+        
+        <!-- Flask Flash Messages Block -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 15px; margin-bottom: 20px; border-radius: 4px; color: white; background-color: {{ '#dc3545' if category == 'error' else '#28a745' }};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Main Inventory Table -->
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Product Name</th>
+                <th>Price</th>
+                <th>Stock Left</th>
+                <th>Actions</th>
+            </tr>
+            {% for item in inventory %}
+            <tr>
+                <td>{{ item[0] }}</td>
+                <td>{{ item[1] }}</td>
+                <td>${{ "%.2f"|format(item[2]) }}</td>
+                <td>{{ item[3] }}</td>
+                <td>
+                    {% if session['role'] == 'Manager' %}
+                    <a href="/edit/{{ item[0] }}" style="color: #007bff; text-decoration: none; margin-right: 10px;">✏️ Edit</a>
+                    <a href="/delete/{{ item[0] }}" style="color: #dc3545; text-decoration: none;">❌ Delete</a>
+                    {% else %}
+                    <span style="color: #ccc;">Restricted</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- Action Forms -->
+        <div class="form-box">
+            <h3>➕ Add New Product</h3>
+            <form action="/add" method="POST">
+                <input type="text" name="name" placeholder="Product Name" required>
+                <input type="number" step="0.01" name="price" placeholder="Price" required>
+                <input type="number" name="stock" placeholder="Stock Quantity" required>
+                <button type="submit">Save to Database</button>
+            </form>
+        </div>
+
+        <div class="form-box">
+            <h3>🛒 Process Order</h3>
+            <form action="/order" method="POST">
+                <input type="number" name="product_id" placeholder="Product ID" required>
+                <input type="number" name="quantity" placeholder="Quantity Ordered" required>
+                <button style="background-color: #007bff;" type="submit">Submit Order</button>
+            </form>
+        </div>
+        
+        <div class="form-box">
+            <h3>📥 Receive Shipment (Restock)</h3>
+            <form action="/restock" method="POST">
+                <input type="number" name="product_id" placeholder="Product ID" required>
+                <input type="number" name="quantity" placeholder="Quantity Received" required>
+                <input type="number" step="0.01" name="cost" placeholder="Total Cost of Shipment ($)" required>
+                <button style="background-color: #17a2b8;" type="submit">Restock Item</button>
+            </form>
+        </div>
+        
+        <!-- Audit Trail -->
+        <div class="form-box" style="background: #fff3cd; border: 1px solid #ffe69c;">
+            <h3>📋 Recent Orders (Audit Trail)</h3>
+            <table>
+                <tr><th>Order ID</th><th>Product</th><th>Qty</th><th>Processed By</th></tr>
+                {% for order in recent_orders %}
+                <tr>
+                    <td>#{{ order[0] }}</td>
+                    <td>{{ order[1] }}</td>
+                    <td>{{ order[2] }}</td>
+                    <td><b>{{ order[3] }}</b></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="background-color: transparent;">No orders placed yet.</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+        
+    </div>
+</body>
+</html>

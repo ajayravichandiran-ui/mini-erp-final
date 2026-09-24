@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ERP - Supplier Directory</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f4f7f6; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #6f42c1; color: white; } /* Purple theme for Suppliers */
+        .form-box { background: #e2d9f3; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        input, button { padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #6f42c1; color: white; border: none; cursor: pointer; font-weight: bold; }
+        .nav-link { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #007bff; font-weight: bold; }
+        .flash { padding: 15px; margin-bottom: 20px; border-radius: 4px; color: white; background-color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="nav-link">⬅ Back to Inventory</a>
+        <h2>🤝 Supplier & Vendor Directory</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-box">
+            <h3>➕ Add New Supplier</h3>
+            <form action="/suppliers" method="POST">
+                <input type="text" name="name" placeholder="Company Name" required style="width: 32%;">
+                <input type="text" name="contact" placeholder="Contact Person" required style="width: 32%;">
+                <input type="email" name="email" placeholder="Email Address" required style="width: 32%;">
+                <button type="submit" style="width: 100%; margin-top: 10px;">Save Supplier</button>
+            </form>
+        </div>
+
+        <table>
+            <tr><th>ID</th><th>Company Name</th><th>Contact Person</th><th>Email</th></tr>
+            {% for vendor in vendors %}
+            <tr>
+                <td>{{ vendor[0] }}</td>
+                <td><b>{{ vendor[1] }}</b></td>
+                <td>{{ vendor[2] }}</td>
+                <td><a href="mailto:{{ vendor[3] }}">{{ vendor[3] }}</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No suppliers added yet.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
