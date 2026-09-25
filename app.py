@@ -164,6 +164,19 @@ def add_item():
     
     return redirect(url_for('index'))
 
+@app.route('/delete_item/<item_name>', methods=['POST'])
+def delete_item(item_name):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Delete the specific product from the database
+    cursor.execute("DELETE FROM products WHERE name = ?", (item_name,))
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('index'))
+
 @app.route('/add', methods=['POST'])
 def add():
     # Security check: must be logged in
