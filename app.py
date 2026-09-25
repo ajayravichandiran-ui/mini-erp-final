@@ -132,7 +132,7 @@ def index():
     cursor = conn.cursor()
     
     # 2. Fetch the product names and their current stock levels
-    cursor.execute("SELECT name, quantity FROM products")
+    cursor.execute("SELECT name, stock FROM products")
     inventory_data = cursor.fetchall()
     conn.close()
     
