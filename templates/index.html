@@ -99,17 +99,19 @@
     <script>
         const ctx = document.getElementById('inventoryChart').getContext('2d');
         new Chart(ctx, {
-            type: 'line',
+            type: 'line', /* You can also change this to 'bar' or 'doughnut' */
             data: {
-                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+                // 1. Inject the product names from Flask
+                // Wrap the Jinja tags in single quotes so VS Code sees them as normal text strings
+                labels: JSON.parse('{{ labels | tojson | safe }}'),
                 datasets: [{
-                    label: 'Stock Levels',
-                    data: [150, 120, 180, 130, 160],
+                    label: 'Current Stock',
+                    data: JSON.parse('{{ data | tojson | safe }}'),
                     borderColor: '#00d2ff',
                     backgroundColor: 'rgba(0, 210, 255, 0.2)',
                     borderWidth: 3,
                     fill: true,
-                    tension: 0.4 /* This creates the smooth, fluid curve */
+                    tension: 0.4
                 }]
             },
             options: {
