@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request, redirect, flash, session, Response
 import sqlite3
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'erp_database.db')
+
 app = Flask(__name__)
 # A secret key is required to use flash messages securely
 app.secret_key = "super_secret_erp_key" 
@@ -71,7 +74,7 @@ conn.close()
 # --------------------------------------
 
 def get_inventory():
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM products")
     items = cursor.fetchall()
