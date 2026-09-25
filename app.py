@@ -124,35 +124,23 @@ def add():
 
 @app.route('/')
 def index():
-    if 'username' not in session:
-        return redirect('/login')
-        
-    # Get the search term from the URL (if it exists)
-    search_query = request.args.get('q', '')
-        
+    # 1. Connect to your SQLite database
     conn = sqlite3.connect('erp_database.db')
     cursor = conn.cursor()
     
-    # SQL Logic: If there is a search term, filter the results. Otherwise, show all.
-    if search_query:
-        cursor.execute("SELECT * FROM products WHERE name LIKE ?", ('%' + search_query + '%',))
-    else:
-        cursor.execute("SELECT * FROM products")
-        
-    inventory = cursor.fetchall()
-    
-    # Get Audit Trail (Last 5 Orders)
-    cursor.execute('''
-        SELECT o.id, p.name, o.quantity, o.processed_by 
-        FROM orders o 
-        JOIN products p ON o.product_id = p.id 
-        ORDER BY o.id DESC LIMIT 5
-    ''')
-    recent_orders = cursor.fetchall()
-    
+    # 2. Fetch the product names and their current stock levels
+    cursor.execute("SELECT name, quantity FROM products")
+    inventory_data = cursor.fetchall()
     conn.close()
-    # Pass the search_query back to the template so the search box remembers what you typed
-    return render_template('index.html', inventory=inventory, recent_orders=recent_orders, search_query=search_query)
+    
+    # 3. Separate the data into two lists for Chart.js
+    product_names = [row[0] for row in inventory_data]
+    stock_levels = [row[1] for row in inventory_data]
+    
+    # 4. Pass the lists into the HTML template
+    return render_template('index.html', 
+                           labels=product_names, 
+                           data=stock_levels)
 
 @app.route('/add', methods=['POST'])
 def add():
