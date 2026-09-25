@@ -1,18 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>ERP Login</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP System Login</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 300px; text-align: center; }
-        input, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        .flash { padding: 10px; margin-bottom: 15px; border-radius: 4px; color: white; background-color: #dc3545; }
+        /* 1. The Dynamic Animated Background */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #1e3c72, #2a5298, #00d2ff, #3a7bd5);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 2. The 3D Glassmorphism Card */
+        .login-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            padding: 50px;
+            width: 350px;
+            text-align: center;
+            color: white;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            transform-style: preserve-3d;
+        }
+
+        /* 3. The 3D Hover Interaction */
+        .login-box:hover {
+            transform: translateY(-10px) scale(1.02) perspective(1000px) rotateX(2deg) rotateY(2deg);
+            box-shadow: 0 20px 40px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        h2 { margin-top: 0; font-weight: 600; letter-spacing: 1px; }
+
+        /* 4. Modern Translucent Inputs */
+        input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            outline: none;
+            box-sizing: border-box;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+        
+        input::placeholder { color: rgba(255, 255, 255, 0.7); }
+        
+        input:focus { 
+            background: rgba(255, 255, 255, 0.3); 
+            transform: scale(1.01);
+        }
+
+        /* 5. Interactive Button */
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 20px;
+            border: none;
+            border-radius: 10px;
+            background: #fff;
+            color: #1e3c72;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.4);
+        }
+
+        .flash {
+            background: rgba(255, 100, 100, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(5px);
+        }
     </style>
 </head>
 <body>
     <div class="login-box">
-        <h2>🔒 System Login</h2>
+        <h2>System Login</h2>
         
         {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -27,7 +116,7 @@
             <input type="password" name="password" placeholder="Password" required>
             <button type="submit">Access System</button>
         </form>
-        <p style="font-size: 12px; color: #666;">Demo Credentials: admin / password123</p>
+        <p style="font-size: 12px; margin-top: 20px; color: rgba(255,255,255,0.6);">Demo Credentials: admin / password123</p>
     </div>
 </body>
 </html>
