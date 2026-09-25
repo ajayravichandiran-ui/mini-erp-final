@@ -66,6 +66,35 @@
         .chart-container {
             grid-column: 1 / -1; /* Spans the full width of the grid */
         }
+        /* Glassmorphism Form Inputs */
+        .glass-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .glass-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;   
+            border-radius: 8px;
+            background: #00d2ff;
+            color: #0f2027;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .glass-btn:hover {
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
