@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, flash, session, Response, url_for
+from flask import Flask, render_template, request, redirect, flash, session, Response, url_for, jsonify
 import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -390,6 +390,32 @@ def suppliers():
     conn.close()
     
     return render_template('suppliers.html', vendors=vendors)
+
+@app.route('/api/inventory', methods=['GET'])
+def api_inventory():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Fetch all products from the database
+    cursor.execute("SELECT name, stock, price FROM products")
+    items = cursor.fetchall()
+    conn.close()
+    
+    # Convert the SQLite rows into a structured list of dictionaries
+    inventory_list = []
+    for item in items:
+        inventory_list.append({
+            "name": item[0],
+            "stock": item[1],
+            "price": item[2]
+        })
+        
+    # Transmit the data as pure JSON
+    return jsonify({
+        "status": "success",
+        "total_items": len(inventory_list),
+        "data": inventory_list
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
