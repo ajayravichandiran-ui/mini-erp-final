@@ -148,23 +148,20 @@ def index():
 
 @app.route('/add_item', methods=['POST'])
 def add_item():
-    # 1. Grab the data typed into the HTML form
+    # Grab all three fields from the form
     item_name = request.form['name']
     item_stock = request.form['stock'] 
+    item_price = request.form['price']
     
-    # 2. Connect to the database using your dynamic DB_PATH
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 3. Insert the new item. 
-    # (IMPORTANT: Change the word 'stock' below to match your actual database column name)
-    cursor.execute("INSERT INTO products (name, stock) VALUES (?, ?)", (item_name, item_stock))
+    # Update the query to include the price column
+    cursor.execute("INSERT INTO products (name, stock, price) VALUES (?, ?, ?)", (item_name, item_stock, item_price))
     
-    # 4. Save changes and close
     conn.commit()
     conn.close()
     
-    # 5. Send the user back to the main dashboard
     return redirect(url_for('index'))
 
 @app.route('/add', methods=['POST'])
