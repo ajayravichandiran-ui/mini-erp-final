@@ -483,12 +483,18 @@
             <input type="text" name="customer" placeholder="e.g. Tech Corp" required>
           </div>
           <div class="field">
-            <label>Items</label>
-            <input type="text" name="items" placeholder="e.g. 5x Laptops, 2x Mice" required>
+            <label>Select Product</label>
+            <select name="product_name" required style="width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; font-size: 12px; background: #fff; color: var(--navy);">
+              <!-- Jinja Loop to generate dropdown options -->
+               <option value="" disabled selected>-- Choose from inventory --</option>
+              {% for product in available_products %}
+                <option value="{{ product }}">{{ product }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="field">
-            <label>Total Amount ($)</label>
-            <input type="number" name="total" min="0" step="0.01" placeholder="0.00" required>
+            <label>Quantity</label>
+            <input type="number" name="quantity" min="1" placeholder="1" required>
           </div>
           <button class="primary-btn" type="submit">
             Create Order
@@ -518,6 +524,7 @@
               <option value="shipped"    {% if request.args.get('status') == 'shipped'    %}selected{% endif %}>Shipped</option>
               <option value="delivered"  {% if request.args.get('status') == 'delivered'  %}selected{% endif %}>Delivered</option>
               <option value="cancelled"  {% if request.args.get('status') == 'cancelled'  %}selected{% endif %}>Cancelled</option>
+              
             </select>
             <button type="submit" class="filter-btn">Filter</button>
             <a href="/orders" class="filter-btn" style="display:inline-flex;align-items:center;">Clear</a>
@@ -550,7 +557,7 @@
                   <td>{{ order.customer }}</td>
 
                   {# Items — could be a count or a short description string #}
-                  <td>{{ order.items }}</td>
+                  <td>{{ order['items'] }}</td>
 
                   {# Total — formatted as currency #}
                   <td style="font-weight:650;">${{ "%.2f"|format(order.total) }}</td>
@@ -571,7 +578,7 @@
                       <button type="button" class="view-btn"
                         data-id="{{ order.id }}"
                         data-customer="{{ order.customer }}"
-                        data-items="{{ order.items }}"
+                        data-items="{{ order['items'] }}"
                         data-total="{{ '%.2f'|format(order.total) }}"
                         data-status="{{ order.status | capitalize }}"
                         onclick="openModal(this)">

@@ -1,6 +1,13 @@
 import os
 from flask import Flask, render_template, request, redirect, flash, session, Response, url_for, jsonify
 import sqlite3
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+# 1. Extract
+conn = sqlite3.connect('database.db')
+
+model = LinearRegression()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'erp_database.db')
@@ -13,7 +20,9 @@ app.secret_key = "super_secret_erp_key"
 conn = sqlite3.connect('erp_database.db')
 cursor = conn.cursor()
 
+
 # 1. Products Table
+
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,13 +33,27 @@ cursor.execute('''
 ''')
 
 # 2. Orders Table
+# Update the orders table in app.py
+# 2. Orders Table (Parent)
+# 2. Orders Table (Parent)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER,
+        customer TEXT NOT NULL,
+        total REAL NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
+# 3. Order Items Table (Child)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_name TEXT NOT NULL,
         quantity INTEGER NOT NULL,
-        processed_by TEXT, -- NEW: Tracks which employee processed this
-        FOREIGN KEY(product_id) REFERENCES products(id)
+        FOREIGN KEY (order_id) REFERENCES orders (id)
     )
 ''')
 
@@ -193,36 +216,9 @@ def add():
     flash(f"Success: {name} added to inventory!", "success")
     return redirect('/')
 
-@app.route('/order', methods=['POST'])
-def order():
-    if 'username' not in session:
-        return redirect('/login')
-        
-    product_id = int(request.form['product_id'])
-    quantity = int(request.form['quantity'])
-    processed_by = session['username'] # Grab the employee's username
-    
-    conn = sqlite3.connect('erp_database.db')
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT name, stock FROM products WHERE id = ?", (product_id,))
-    result = cursor.fetchone()
-    
-    if not result:
-        flash("Error: Product ID does not exist!", "error")
-    elif result[1] < quantity:
-        flash(f"Error: Not enough stock for {result[0]}. Only {result[1]} left.", "error")
-    else:
-        new_stock = result[1] - quantity
-        cursor.execute("UPDATE products SET stock = ? WHERE id = ?", (new_stock, product_id))
-        
-        # Save the transaction WITH the employee's name
-        cursor.execute("INSERT INTO orders (product_id, quantity, processed_by) VALUES (?, ?, ?)", (product_id, quantity, processed_by))
-        conn.commit()
-        flash(f"Success: Order placed for {quantity}x {result[0]}!", "success")
-        
-    conn.close()
-    return redirect('/')
+
+
+
 
 @app.route('/delete/<int:id>')
 def delete(id):
@@ -492,27 +488,31 @@ def orders():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            customer TEXT NOT NULL,
-            items TEXT NOT NULL,
-            total REAL NOT NULL,
-            status TEXT DEFAULT 'pending'
-        )
-    ''')
+    
+    # The proper relational JOIN query to stitch the parent and child tables together
+    query = '''
+        SELECT o.id, o.customer, o.total, o.status, o.created_at,
+               GROUP_CONCAT(oi.quantity || 'x ' || oi.product_name, ', ') as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+    '''
     
     if status_filter:
-        cursor.execute("SELECT * FROM orders WHERE status = ?", (status_filter,))
+        query += " WHERE o.status = ? GROUP BY o.id"
+        cursor.execute(query, (status_filter,))
     else:
-        cursor.execute("SELECT * FROM orders")
+        query += " GROUP BY o.id"
+        cursor.execute(query)
         
-    # THE FIX: Convert sqlite3.Row objects into standard Python dictionaries
     orders_data = [dict(row) for row in cursor.fetchall()]
+    
+    # Fetch active products for the dropdown
+    cursor.execute("SELECT name FROM products")
+    available_products = [row['name'] for row in cursor.fetchall()]
+    
     conn.close()
     
-    return render_template('orders.html', orders=orders_data)
-
+    return render_template('orders.html', orders=orders_data, available_products=available_products)
 # 2. Update Order Status
 @app.route('/update_order/<int:order_id>', methods=['POST'])
 def update_order(order_id):
@@ -552,18 +552,73 @@ def seed_orders():
 @app.route('/add_order', methods=['POST'])
 def add_order():
     customer = request.form['customer']
-    items = request.form['items']
-    total = float(request.form['total'])
+    product_name = request.form['product_name']  # Now correctly matches the HTML dropdown
+    quantity = int(request.form['quantity'])
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # New orders default to 'pending' status
-    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES (?, ?, ?, 'pending')", 
-                   (customer, items, total))
+    
+    # Look up the product's price to calculate the order total
+    cursor.execute("SELECT price FROM products WHERE name = ?", (product_name,))
+    product = cursor.fetchone()
+    
+    if product:
+        unit_price = product[0]
+        total = unit_price * quantity
+        
+        # Step A: Insert the parent transaction
+        cursor.execute("INSERT INTO orders (customer, total, status) VALUES (?, ?, 'pending')", 
+                       (customer, total))
+        order_id = cursor.lastrowid 
+        
+        # Step B: Insert the child item linked to the Order ID
+        cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, ?, ?)",
+                       (order_id, product_name, quantity))
+                       
+        # Step C: Automatically deduct the purchased quantity from inventory
+        cursor.execute("UPDATE products SET stock = stock - ? WHERE name = ?", 
+                       (quantity, product_name))
+        conn.commit()
+        
+    conn.close()
+    return redirect(url_for('orders'))
+
+@app.route('/reset_db')
+def reset_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 1. Destroy the old tables
+    cursor.execute("DROP TABLE IF EXISTS orders")
+    cursor.execute("DROP TABLE IF EXISTS order_items")
+    
+    # 2. Build the new parent table (NO 'items' column!)
+    cursor.execute('''
+        CREATE TABLE orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer TEXT NOT NULL,
+            total REAL NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 3. Build the new child table
+    cursor.execute('''
+        CREATE TABLE order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            FOREIGN KEY (order_id) REFERENCES orders (id)
+        )
+    ''')
+    
+    # 4. FORCE the database to save these structural changes
     conn.commit()
     conn.close()
     
-    return redirect(url_for('orders'))
+    return "Database reset successfully! You can now go back to the Orders page."
 
 if __name__ == '__main__':
     app.run(debug=True)
