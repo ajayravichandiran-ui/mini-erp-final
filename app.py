@@ -135,7 +135,7 @@ def index():
     inventory_data = cursor.fetchall()
     conn.close()
     
-    # Separate the data into lists for Jinja and Chart.js
+    # Separate the data into lists for Jinja and Chart.js 
     labels = [item[0] for item in inventory_data]
     data = [item[1] for item in inventory_data]
     prices = [item[2] for item in inventory_data] # Extract the prices
