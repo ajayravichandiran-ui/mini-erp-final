@@ -488,7 +488,9 @@
               <!-- Jinja Loop to generate dropdown options -->
                <option value="" disabled selected>-- Choose from inventory --</option>
               {% for product in available_products %}
-                <option value="{{ product }}">{{ product }}</option>
+                <option value="{{ product.name }}">
+            {{ product.name }} (Stock: {{ product.stock }})
+        </option>
               {% endfor %}
             </select>
           </div>
