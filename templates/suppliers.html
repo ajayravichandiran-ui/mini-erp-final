@@ -82,60 +82,68 @@
     <main class="content">
       <section class="dashboard-grid">
         
-        <!-- Add Supplier Form -->
-        <div class="card-header"><h2 class="card-title">Add new supplier</h2><p class="card-subtitle">Register a new vendor</p></div>
-  
-  <form action="/suppliers" method="POST">
-  <!-- Notice the class="form-control" on the inputs -->
-  <div class="field"><label>Company name</label">
-    <input type="text" name="name" placeholder="Supplier Name" required class="form-control">
-  </div>
-  
-  <div class="field"><label>Contact number</label>
-    <input type="text" name="contact" placeholder="Contact Person / Phone" required class="form-control">
-  </div>
-  
-  <div class="field"><label>Email address</label>
-    <input type="email" name="email" placeholder="Email Address" class="form-control">
-  </div>
-  
-  <!-- Notice the class="btn btn-primary" on the button -->
-  <button type="submit" class="primary-btn">Add Supplier</button>
-</form>
-</div>
+        <!-- Add Supplier Form Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Add new supplier</h2>
+            <p class="card-subtitle">Register a new vendor</p>
+          </div>
+          <div class="form-body">
+            <form action="/suppliers" method="POST">
+              <div class="field">
+                <label>Company name</label>
+                <input type="text" name="name" placeholder="Supplier Name" required class="form-control">
+              </div>
+              <div class="field">
+                <label>Contact number</label>
+                <input type="text" name="contact" placeholder="Contact Person / Phone" required class="form-control">
+              </div>
+              <div class="field">
+                <label>Email address</label>
+                <input type="email" name="email" placeholder="Email Address" class="form-control">
+              </div>
+              <button type="submit" class="primary-btn">Add Supplier</button>
+            </form>
+          </div>
+        </div>
 
-        <!-- Supplier Table -->
-        <div class="card-header"><h2 class="card-title">Active Suppliers</h2></div>
-        <div class="table-wrap"></div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>COMPANY</th>
-        <th>CONTACT</th>
-        <th>EMAIL</th>
-        <th>ACTION</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for supplier in suppliers %}
-      <tr>
-        <td>{{ supplier.name }}</td>
-        <td>{{ supplier.contact }}</td>
-        <td>{{ supplier.email }}</td>
-        <td>
-          <form action="/suppliers/delete/{{ supplier.id }}" method="POST" style="display:inline;">
-            <button type="submit" class="delete-btn">Remove</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="4" class="text-center text-muted">No suppliers registered yet.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+        <!-- Supplier Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Active Suppliers</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>COMPANY</th>
+                  <th>CONTACT</th>
+                  <th>EMAIL</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for supplier in suppliers %}
+                <tr>
+                  <td>{{ supplier.name }}</td>
+                  <td>{{ supplier.contact }}</td>
+                  <td>{{ supplier.email }}</td>
+                  <td>
+                    <form action="/suppliers/delete/{{ supplier.id }}" method="POST" style="display:inline;">
+                      <button type="submit" class="delete-btn">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" style="text-align: center; padding: 20px; color: var(--muted);">No suppliers registered yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </section>
     </main>
   </section>
