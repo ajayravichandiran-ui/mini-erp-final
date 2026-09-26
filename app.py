@@ -14,9 +14,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'erp_database.db')
 MODEL_PATH = os.path.join(BASE_DIR, 'model.pkl')
 demand_model = None
-if os.path.exists(MODEL_PATH):
-    with open(MODEL_PATH, 'rb') as f:
-        demand_model = pickle.load(f)
+try:
+    if os.path.exists(MODEL_PATH):
+        with open(MODEL_PATH, 'rb') as f:
+            demand_model = pickle.load(f)
+except Exception as e:
+    print(f"⚠️ Could not load ML model due to version mismatch: {e}")
+    demand_model = None
 
 app = Flask(__name__)
 # A secret key is required to use flash messages securely
@@ -400,31 +404,32 @@ def update_item(item_name):
     
     return redirect(url_for('index'))
 # 1. Load the Suppliers Page
-@app.route('/suppliers')
+@app.route('/suppliers', methods=['GET', 'POST'])
 def suppliers():
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # 1. Destroy the misconfigured table
-    cursor.execute("DROP TABLE IF EXISTS suppliers")
+    # Handle adding a new supplier via form submission
+    if request.method == 'POST':
+        name = request.form.get('name')
+        contact = request.form.get('contact')
+        email = request.form.get('email')
+        
+        if name and contact:
+            cursor.execute(
+                "INSERT INTO suppliers (name, contact, email) VALUES (?, ?, ?)",
+                (name, contact, email)
+            )
+            conn.commit()
+        return redirect(url_for('suppliers'))
     
-    # 2. Rebuild it with the correct 'contact' column
-    cursor.execute('''
-        CREATE TABLE suppliers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            contact TEXT NOT NULL,
-            email TEXT
-        )
-    ''')
-    
-    # 3. Fetch data for the template
+    # Fetch all suppliers to display in the template
     cursor.execute("SELECT id, name, contact, email FROM suppliers")
-    suppliers_data = cursor.fetchall()
+    suppliers_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
     return render_template('suppliers.html', suppliers=suppliers_data)
-
 # 2. Add a New Supplier
 @app.route('/add_supplier', methods=['POST'])
 def add_supplier():

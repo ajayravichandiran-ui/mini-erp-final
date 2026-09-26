@@ -83,42 +83,59 @@
       <section class="dashboard-grid">
         
         <!-- Add Supplier Form -->
-        <article class="card">
-          <div class="card-header"><h2 class="card-title">Add new supplier</h2><p class="card-subtitle">Register a new vendor</p></div>
-          <form class="form-body" action="/add_supplier" method="POST">
-            <div class="field"><label>Company name</label><input type="text" name="name" required></div>
-            <div class="field"><label>Contact number</label><input type="text" name="contact" required></div>
-            <div class="field"><label>Email address</label><input type="email" name="email"></div>
-            <button class="primary-btn" type="submit">Register supplier</button>
-          </form>
-        </article>
+        <div class="card-header"><h2 class="card-title">Add new supplier</h2><p class="card-subtitle">Register a new vendor</p></div>
+  
+  <form action="/suppliers" method="POST">
+  <!-- Notice the class="form-control" on the inputs -->
+  <div class="field"><label>Company name</label">
+    <input type="text" name="name" placeholder="Supplier Name" required class="form-control">
+  </div>
+  
+  <div class="field"><label>Contact number</label>
+    <input type="text" name="contact" placeholder="Contact Person / Phone" required class="form-control">
+  </div>
+  
+  <div class="field"><label>Email address</label>
+    <input type="email" name="email" placeholder="Email Address" class="form-control">
+  </div>
+  
+  <!-- Notice the class="btn btn-primary" on the button -->
+  <button type="submit" class="primary-btn">Add Supplier</button>
+</form>
+</div>
 
         <!-- Supplier Table -->
-        <article class="card">
-          <div class="card-header"><h2 class="card-title">Active Suppliers</h2></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th>Action</th></tr></thead>
-              <tbody>
-                {% for supplier in suppliers %}
-                <tr>
-                  <td>{{ supplier[1] }}</td>
-                  <td>{{ supplier[2] }}</td>
-                  <td>{{ supplier[3] }}</td>
-                  <td>
-                    <form action="/delete_supplier/{{ supplier[0] }}" method="POST" style="margin:0;">
-                      <button type="submit" class="delete-btn">Remove</button>
-                    </form>
-                  </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" style="text-align: center; color: #8995a5;">No suppliers registered yet.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
+        <div class="card-header"><h2 class="card-title">Active Suppliers</h2></div>
+        <div class="table-wrap"></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>COMPANY</th>
+        <th>CONTACT</th>
+        <th>EMAIL</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for supplier in suppliers %}
+      <tr>
+        <td>{{ supplier.name }}</td>
+        <td>{{ supplier.contact }}</td>
+        <td>{{ supplier.email }}</td>
+        <td>
+          <form action="/suppliers/delete/{{ supplier.id }}" method="POST" style="display:inline;">
+            <button type="submit" class="delete-btn">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="text-center text-muted">No suppliers registered yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
       </section>
     </main>
   </section>
