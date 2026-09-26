@@ -82,7 +82,7 @@ cursor.execute('''
     CREATE TABLE IF NOT EXISTS suppliers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        contact_person TEXT,
+        contact TEXT,
         email TEXT
     )
 ''')
@@ -398,11 +398,13 @@ def update_item(item_name):
 def suppliers():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # ADD THIS LINE TEMPORARILY: Destroy the old misconfigured table
     
-    # Automatically create the table if it is missing
+    # 1. Destroy the misconfigured table
+    cursor.execute("DROP TABLE IF EXISTS suppliers")
+    
+    # 2. Rebuild it with the correct 'contact' column
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS suppliers (
+        CREATE TABLE suppliers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             contact TEXT NOT NULL,
@@ -410,13 +412,12 @@ def suppliers():
         )
     ''')
     
-    # Fetch all suppliers and pass them to the Jinja template
+    # 3. Fetch data for the template
     cursor.execute("SELECT id, name, contact, email FROM suppliers")
     suppliers_data = cursor.fetchall()
     conn.close()
     
     return render_template('suppliers.html', suppliers=suppliers_data)
-
 
 # 2. Add a New Supplier
 @app.route('/add_supplier', methods=['POST'])
