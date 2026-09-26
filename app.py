@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, flash, session, Response, url_for, jsonify
 import sqlite3
 import pandas as pd
+import pickle
 from sklearn.linear_model import LinearRegression
 
 # 1. Extract
@@ -11,6 +12,11 @@ model = LinearRegression()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'erp_database.db')
+MODEL_PATH = os.path.join(BASE_DIR, 'model.pkl')
+demand_model = None
+if os.path.exists(MODEL_PATH):
+    with open(MODEL_PATH, 'rb') as f:
+        demand_model = pickle.load(f)
 
 app = Flask(__name__)
 # A secret key is required to use flash messages securely
@@ -502,8 +508,8 @@ def orders():
     orders_data = [dict(row) for row in cursor.fetchall()]
     
     # Fetch active products for the dropdown
-    cursor.execute("SELECT name FROM products")
-    available_products = [row['name'] for row in cursor.fetchall()]
+    cursor.execute("SELECT name, stock FROM products")
+    available_products = [dict(row) for row in cursor.fetchall()]
     
     conn.close()
     
@@ -621,6 +627,18 @@ def reset_db():
     conn.close()
     
     return "Database reset successfully! You can now go back to the Orders page."
+
+@app.route('/predict-demand/<float:price>')
+def predict_demand(price):
+    if not demand_model:
+        return {"error": "Model not trained yet!"}
+    
+    # Predict expected sales volume for a given price
+    predicted_units = demand_model.predict([[price]])[0]
+    return {
+        "price": price,
+        "predicted_demand": round(float(predicted_units), 2)
+    }
 
 if __name__ == '__main__':
     app.run(debug=True)

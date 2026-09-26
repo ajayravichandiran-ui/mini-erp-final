@@ -484,15 +484,14 @@
           </div>
           <div class="field">
             <label>Select Product</label>
-            <select name="product_name" required style="width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; font-size: 12px; background: #fff; color: var(--navy);">
-              <!-- Jinja Loop to generate dropdown options -->
-               <option value="" disabled selected>-- Choose from inventory --</option>
-              {% for product in available_products %}
-                <option value="{{ product.name }}">
+            <select name="product_name" class="form-control" required>
+    <option value="" disabled selected>-- Choose from inventory --</option>
+    {% for product in available_products %}
+        <option value="{{ product.name }}">
             {{ product.name }} (Stock: {{ product.stock }})
         </option>
-              {% endfor %}
-            </select>
+    {% endfor %}
+</select>
           </div>
           <div class="field">
             <label>Quantity</label>
