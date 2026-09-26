@@ -1,56 +1,125 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>ERP - Supplier Directory</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f4f7f6; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #6f42c1; color: white; } /* Purple theme for Suppliers */
-        .form-box { background: #e2d9f3; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        input, button { padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #6f42c1; color: white; border: none; cursor: pointer; font-weight: bold; }
-        .nav-link { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #007bff; font-weight: bold; }
-        .flash { padding: 15px; margin-bottom: 20px; border-radius: 4px; color: white; background-color: #28a745; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Suppliers</title>
+  <style>
+    /* ── Paste all the exact same CSS from your index.html here ── */
+    :root { --navy: #172236; --muted: #6f7d90; --line: #e7ebf1; --blue: #3163e3; --bg: #f6f8fb; --green: #16855b; --red: #d64a4a; --amber: #d68b2f; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--navy); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input { font: inherit; } button { cursor: pointer; } h1, h2, h3 { margin: 0; } a { color: inherit; text-decoration: none; }
+    .erp-shell { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; flex: 0 0 240px; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 24px 14px 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 32px; font-size: 18px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--blue); color: #fff; font-weight: 800; font-size: 14px; }
+    .nav-label { margin: 0 12px 10px; color: #a0aaba; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; margin-bottom: 24px; }
+    .nav a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 6px; color: #738094; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; }
+    .nav a:hover, .nav a.active { color: var(--blue); background: #eef3ff; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; }
+    .profile { display: flex; align-items: center; gap: 9px; padding: 12px 8px 0; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #dfe8ff; color: #315abf; font-size: 11px; font-weight: 800; }
+    .profile-info strong { display: block; font-size: 12px; } .profile-info span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; height: 72px; padding: 0 36px; background: #fff; border-bottom: 1px solid var(--line); }
+    .topbar-left { display: flex; align-items: center; gap: 12px; } .topbar h1 { font-size: 18px; letter-spacing: -.03em; } .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .content { flex: 1; padding: 28px 36px 48px; max-width: 1400px; width: 100%; margin: 0 auto; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(270px, .75fr) minmax(0, 1.55fr); gap: 18px; align-items: start; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 20px 22px 14px; } .card-title { font-size: 13px; font-weight: 750; } .card-subtitle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .form-body { padding: 0 22px 22px; } .field { display: grid; gap: 6px; margin-bottom: 14px; } .field label { color: #516075; font-size: 11px; font-weight: 700; }
+    .field input { width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; font-size: 12px; } .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    .primary-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 18px; padding: 10px 14px; border: 0; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 750; }
+    .delete-btn { padding: 6px 10px; border: 1px solid rgba(214, 74, 74, .3); border-radius: 4px; background: rgba(214, 74, 74, .07); color: var(--red); font-size: 11px; font-weight: 700; }
+    .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } thead tr { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    th { padding: 9px 22px; color: #8995a5; font-size: 10px; font-weight: 750; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+    td { padding: 14px 22px; border-bottom: 1px solid #eef1f5; color: #3b495c; font-size: 12px; }
+    .topbar-actions { display: flex; align-items: center; gap: 18px; }
+    .icon-btn { display: grid; place-items: center; width: 34px; height: 34px; border: 0; background: transparent; color: #718095; border-radius: 6px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <a href="/" class="nav-link">⬅ Back to Inventory</a>
-        <h2>🤝 Supplier & Vendor Directory</h2>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="flash">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="form-box">
-            <h3>➕ Add New Supplier</h3>
-            <form action="/suppliers" method="POST">
-                <input type="text" name="name" placeholder="Company Name" required style="width: 32%;">
-                <input type="text" name="contact" placeholder="Contact Person" required style="width: 32%;">
-                <input type="email" name="email" placeholder="Email Address" required style="width: 32%;">
-                <button type="submit" style="width: 100%; margin-top: 10px;">Save Supplier</button>
-            </form>
-        </div>
-
-        <table>
-            <tr><th>ID</th><th>Company Name</th><th>Contact Person</th><th>Email</th></tr>
-            {% for vendor in vendors %}
-            <tr>
-                <td>{{ vendor[0] }}</td>
-                <td><b>{{ vendor[1] }}</b></td>
-                <td>{{ vendor[2] }}</td>
-                <td><a href="mailto:{{ vendor[3] }}">{{ vendor[3] }}</a></td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4">No suppliers added yet.</td></tr>
-            {% endfor %}
-        </table>
+<div class="erp-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-mark">A</span> AJ ERP</div>
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg> Inventory</a>
+      <a href="/orders">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        Orders
+      </a>
+      <a href="/suppliers">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Suppliers
+      </a>
+      <a href="#" class="active"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Suppliers</a>
+    </nav>
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="/settings"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</a>
+      <a href="/logout"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> Logout</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">SM</span>
+        <div class="profile-info"><strong>Ajay R</strong><span>System Administrator</span></div>
+      </div>
     </div>
+  </aside>
+
+  <section class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div><h1>Supplier directory</h1><p>Manage your vendors and external contacts.</p></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="dashboard-grid">
+        
+        <!-- Add Supplier Form -->
+        <article class="card">
+          <div class="card-header"><h2 class="card-title">Add new supplier</h2><p class="card-subtitle">Register a new vendor</p></div>
+          <form class="form-body" action="/add_supplier" method="POST">
+            <div class="field"><label>Company name</label><input type="text" name="name" required></div>
+            <div class="field"><label>Contact number</label><input type="text" name="contact" required></div>
+            <div class="field"><label>Email address</label><input type="email" name="email"></div>
+            <button class="primary-btn" type="submit">Register supplier</button>
+          </form>
+        </article>
+
+        <!-- Supplier Table -->
+        <article class="card">
+          <div class="card-header"><h2 class="card-title">Active Suppliers</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th>Action</th></tr></thead>
+              <tbody>
+                {% for supplier in suppliers %}
+                <tr>
+                  <td>{{ supplier[1] }}</td>
+                  <td>{{ supplier[2] }}</td>
+                  <td>{{ supplier[3] }}</td>
+                  <td>
+                    <form action="/delete_supplier/{{ supplier[0] }}" method="POST" style="margin:0;">
+                      <button type="submit" class="delete-btn">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align: center; color: #8995a5;">No suppliers registered yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+      </section>
+    </main>
+  </section>
+</div>
 </body>
 </html>

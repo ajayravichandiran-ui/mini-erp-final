@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Orders</title>
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --navy:  #172236;
+      --muted: #6f7d90;
+      --line:  #e7ebf1;
+      --blue:  #3163e3;
+      --bg:    #f6f8fb;
+      --green: #16855b;
+      --red:   #d64a4a;
+      --amber: #d68b2f;
+    }
+
+    /* ── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body   { margin: 0; background: var(--bg); color: var(--navy);
+             font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+             BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    h1, h2, h3 { margin: 0; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Shell ──────────────────────────────────────────────── */
+    .erp-shell { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      width: 240px; flex: 0 0 240px;
+      background: #fff; border-right: 1px solid var(--line);
+      display: flex; flex-direction: column;
+      padding: 24px 14px 20px;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px 32px;
+      font-size: 18px; font-weight: 750; letter-spacing: -.04em;
+    }
+    .brand-mark {
+      display: grid; place-items: center;
+      width: 30px; height: 30px; border-radius: 7px;
+      background: var(--blue); color: #fff; font-weight: 800; font-size: 14px;
+    }
+    .nav-label {
+      margin: 0 12px 10px;
+      color: #a0aaba; font-size: 10px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+    }
+    .nav { display: grid; gap: 3px; margin-bottom: 24px; }
+    .nav a {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 6px;
+      color: #738094; font-size: 13px; font-weight: 600;
+      transition: background .15s, color .15s;
+    }
+    .nav a:hover, .nav a.active { color: var(--blue); background: #eef3ff; }
+    .nav a svg { flex-shrink: 0; }
+
+    .sidebar-bottom {
+      margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px;
+    }
+    .profile {
+      display: flex; align-items: center; gap: 9px; padding: 12px 8px 0;
+    }
+    .avatar {
+      display: grid; place-items: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #dfe8ff; color: #315abf;
+      font-size: 11px; font-weight: 800; flex-shrink: 0;
+    }
+    .profile-info strong { display: block; font-size: 12px; }
+    .profile-info span   { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+
+    /* ── Main column ─────────────────────────────────────────── */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    /* ── Top bar ─────────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 72px; padding: 0 36px;
+      background: #fff; border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar h1   { font-size: 18px; letter-spacing: -.03em; }
+    .topbar p    { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .topbar-actions { display: flex; align-items: center; gap: 18px; }
+    .icon-btn {
+      position: relative; display: grid; place-items: center;
+      width: 34px; height: 34px; border: 0;
+      background: transparent; color: #718095; border-radius: 6px;
+    }
+    .icon-btn:hover { background: var(--bg); }
+    .notif-dot {
+      position: absolute; top: 5px; right: 5px;
+      width: 6px; height: 6px; border: 1.5px solid #fff;
+      border-radius: 50%; background: #e25858;
+    }
+    .mobile-menu-btn { display: none; }
+
+    /* ── Content ─────────────────────────────────────────────── */
+    .content { flex: 1; padding: 28px 36px 48px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+    /* ── Metric strip ────────────────────────────────────────── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 22px;
+    }
+    .metric {
+      background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .metric-header {
+      display: flex; justify-content: space-between;
+      color: var(--muted); font-size: 11px; font-weight: 650;
+    }
+    .metric-value  { margin-top: 10px; font-size: 24px; font-weight: 750; letter-spacing: -.04em; }
+    .metric-change { margin-top: 4px; font-size: 11px; font-weight: 650; }
+    .metric-change.green { color: var(--green); }
+    .metric-change.amber { color: var(--amber); }
+    .metric-change.red   { color: var(--red); }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 20px 22px 16px;
+    }
+    .card-title    { font-size: 13px; font-weight: 750; letter-spacing: -.01em; }
+    .card-subtitle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    /* ── Forms & Buttons ─────────────────────────────────────── */
+    .field { display: grid; gap: 6px; }
+    .field label { color: #516075; font-size: 11px; font-weight: 700; }
+    .field input { width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; font-size: 12px; background: #fff; color: var(--navy); }
+    .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    
+    .primary-btn { display: flex; align-items: center; justify-content: center; padding: 0 16px; border: 0; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 750; transition: background .15s; height: 35px; }
+    .primary-btn:hover { background: #2755ce; }
+    
+    .inline-form { display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 14px; align-items: end; padding: 0 22px 22px; }
+    
+    @media (max-width: 768px) { .inline-form { grid-template-columns: 1fr; } }
+
+    /* ── Filter bar ──────────────────────────────────────────── */
+    .filter-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 22px 16px; flex-wrap: wrap;
+    }
+    .filter-bar form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-input {
+      padding: 7px 10px; border: 1px solid #dce2ea; border-radius: 5px;
+      color: var(--navy); font-size: 12px; outline: none;
+      background: #fff; min-width: 160px;
+    }
+    .filter-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    .filter-btn {
+      padding: 7px 14px; border: 1px solid #dce2ea; border-radius: 5px;
+      background: #fff; color: #5c6a7e; font-size: 12px; font-weight: 700;
+      transition: background .15s, border-color .15s;
+    }
+    .filter-btn:hover { border-color: var(--blue); color: var(--blue); background: #f4f8ff; }
+    .filter-btn.primary {
+      background: var(--blue); color: #fff; border-color: var(--blue);
+    }
+    .filter-btn.primary:hover { background: #2755ce; }
+
+    /* ── Table ───────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table  { width: 100%; border-collapse: collapse; min-width: 700px; }
+    thead tr { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    th {
+      padding: 9px 22px;
+      color: #8995a5; font-size: 10px; font-weight: 750;
+      letter-spacing: .07em; text-align: left; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    td {
+      padding: 14px 22px; border-bottom: 1px solid #eef1f5;
+      color: #3b495c; font-size: 12px; vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr { transition: background .1s; }
+    tbody tr:hover { background: #fafbfd; }
+
+    /* ── Status badge ────────────────────────────────────────── */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 10px; font-weight: 750; white-space: nowrap;
+    }
+    .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    .badge-pending   { background: #fff8ec; color: #b86d0a; }
+    .badge-pending   .dot { background: var(--amber); }
+
+    .badge-processing { background: #eef3ff; color: #2a52c9; }
+    .badge-processing .dot { background: var(--blue); }
+
+    .badge-shipped   { background: #edf8f3; color: #0f6644; }
+    .badge-shipped   .dot { background: #24b87a; }
+
+    .badge-delivered { background: #e9f7f1; color: var(--green); }
+    .badge-delivered .dot { background: var(--green); }
+
+    .badge-cancelled { background: #fdf0f0; color: var(--red); }
+    .badge-cancelled .dot { background: var(--red); }
+
+    /* ── Row actions ─────────────────────────────────────────── */
+    .row-actions { display: flex; align-items: center; gap: 6px; }
+
+    .view-btn {
+      padding: 6px 10px;
+      border: 1px solid #dfe5ed; border-radius: 4px;
+      background: #fff; color: #5c6a7e;
+      font-size: 11px; font-weight: 700;
+      transition: background .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .view-btn:hover { border-color: var(--blue); color: var(--blue); background: #f4f8ff; }
+
+    .delete-btn {
+      padding: 6px 10px;
+      border: 1px solid rgba(214,74,74,.3); border-radius: 4px;
+      background: rgba(214,74,74,.07); color: var(--red);
+      font-size: 11px; font-weight: 700;
+      transition: background .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .delete-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    /* Inline status <select> + update button */
+    .status-form { display: flex; align-items: center; gap: 5px; }
+    .status-select {
+      padding: 5px 7px; border: 1px solid #dce2ea; border-radius: 4px;
+      color: var(--navy); font-size: 11px; outline: none;
+      background: #fff; cursor: pointer;
+    }
+    .status-select:focus { border-color: var(--blue); box-shadow: 0 0 0 2px #eaf0ff; }
+    .update-btn {
+      padding: 6px 10px;
+      border: 1px solid #dce2ea; border-radius: 4px;
+      background: #fff; color: #5c6a7e;
+      font-size: 11px; font-weight: 700;
+      transition: background .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .update-btn:hover { border-color: var(--blue); color: var(--blue); background: #f4f8ff; }
+
+    /* ── Order detail modal ──────────────────────────────────── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,25,45,.45); backdrop-filter: blur(2px);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 10px;
+      width: min(560px, calc(100vw - 40px));
+      max-height: calc(100vh - 60px); overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(15,25,45,.22);
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px; border-bottom: 1px solid var(--line);
+    }
+    .modal-title  { font-size: 14px; font-weight: 750; }
+    .modal-close  {
+      display: grid; place-items: center; width: 30px; height: 30px;
+      border: 0; background: transparent; color: var(--muted);
+      border-radius: 5px; cursor: pointer; font-size: 18px; line-height: 1;
+    }
+    .modal-close:hover { background: var(--bg); color: var(--navy); }
+    .modal-body { padding: 22px 24px; }
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px;
+    }
+    .detail-item label {
+      display: block; color: var(--muted);
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; margin-bottom: 4px;
+    }
+    .detail-item span { font-size: 13px; font-weight: 600; }
+    .detail-divider { grid-column: 1 / -1; border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
+    /* ── Period pill ─────────────────────────────────────────── */
+    .period-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px;
+      background: #fff; color: #66758a; font-size: 11px; font-weight: 650;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────── */
+    .empty-state {
+      padding: 52px 22px; text-align: center; color: var(--muted);
+    }
+    .empty-state p { margin: 8px 0 0; font-size: 12px; }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    .toast {
+      position: fixed; right: 20px; bottom: 20px;
+      padding: 11px 16px; border-radius: 6px;
+      background: var(--navy); color: #fff;
+      font-size: 12px; font-weight: 550;
+      box-shadow: 0 8px 24px rgba(23,34,54,.2);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 920px) {
+      .sidebar { position: fixed; z-index: 20; inset: 0 auto 0 0; transform: translateX(-100%); transition: transform .22s ease; }
+      .sidebar.open { transform: translateX(0); box-shadow: 4px 0 32px rgba(0,0,0,.12); }
+      .mobile-menu-btn { display: grid; }
+      .topbar  { padding: 0 20px; }
+      .content { padding: 22px 20px 40px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 540px) {
+      .topbar  { height: 62px; }
+      .content { padding: 16px 14px 32px; }
+      .metrics { grid-template-columns: 1fr; }
+      .card-header, .filter-bar { padding-left: 16px; padding-right: 16px; }
+      th, td { padding-left: 14px; padding-right: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="erp-shell">
+
+  <!-- ── Sidebar ──────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark">A</span>
+      AJ ERP
+    </div>
+
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/orders">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Overview
+      </a>
+      <a href="/">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>
+        Inventory
+      </a>
+      <a href="/orders" class="active">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        Orders
+      </a>
+      <a href="/suppliers">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Suppliers
+      </a>
+    </nav>
+
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="#">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <a href="/logout">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Logout
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">JD</span>
+        <div class="profile-info">
+          <strong>Ajay R</strong>
+          <span>Operations manager</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main column ───────────────────────────────────── -->
+  <section class="main">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn mobile-menu-btn" id="menuBtn" aria-label="Open navigation">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <h1>Orders</h1>
+          <p>Track, update, and manage all customer orders.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Search">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="Notifications">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-dot"></span>
+        </button>
+        <a href="/logout" class="icon-btn" aria-label="Sign out">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ── Metric strip ─────────────────────────────── -->
+      {#
+        Expects Flask to pass: orders — a list of dicts with keys:
+          id, customer, items, total, status
+        Status values (case-insensitive): pending, processing, shipped, delivered, cancelled
+      #}
+      <section class="metrics" aria-label="Order summary metrics">
+
+        <div class="metric">
+          <div class="metric-header">
+            <span>Total orders</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+          </div>
+          <div class="metric-value">{{ orders | length }}</div>
+          <div class="metric-change green">All time</div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-header">
+            <span>Pending</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="metric-value">
+            {{ orders | selectattr('status', 'equalto', 'pending') | list | length }}
+          </div>
+          <div class="metric-change amber">Awaiting processing</div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-header">
+            <span>In transit</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8zM5.5 21a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.5 21a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>
+          </div>
+          <div class="metric-value">
+            {{ orders | selectattr('status', 'equalto', 'shipped') | list | length }}
+          </div>
+          <div class="metric-change green">Shipped &amp; on the way</div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-header">
+            <span>Revenue</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+          </div>
+          <div class="metric-value">
+            ${{ orders | sum(attribute='total') | round(2) }}
+          </div>
+          <div class="metric-change green">Across all orders</div>
+        </div>
+
+      </section>
+      <!-- ── Add Order Form ──────────────────────────── -->
+      <article class="card" style="margin-bottom: 22px;">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Create new order</h2>
+            <p class="card-subtitle">Log a new customer transaction</p>
+          </div>
+        </div>
+        <form class="inline-form" action="/add_order" method="POST">
+          <div class="field">
+            <label>Customer Name</label>
+            <input type="text" name="customer" placeholder="e.g. Tech Corp" required>
+          </div>
+          <div class="field">
+            <label>Items</label>
+            <input type="text" name="items" placeholder="e.g. 5x Laptops, 2x Mice" required>
+          </div>
+          <div class="field">
+            <label>Total Amount ($)</label>
+            <input type="number" name="total" min="0" step="0.01" placeholder="0.00" required>
+          </div>
+          <button class="primary-btn" type="submit">
+            Create Order
+          </button>
+        </form>
+      </article>
+      <!-- ── Orders table card ────────────────────────── -->
+      <article class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Order management</h2>
+            <p class="card-subtitle">Review, update status, or remove orders</p>
+          </div>
+          <span class="period-pill">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Live
+          </span>
+        </div>
+
+        {# Optional: filter by status — Flask route should handle ?status= param #}
+        <div class="filter-bar">
+          <form action="/orders" method="GET">
+            <select name="status" class="filter-input status-select" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="pending"    {% if request.args.get('status') == 'pending'    %}selected{% endif %}>Pending</option>
+              <option value="processing" {% if request.args.get('status') == 'processing' %}selected{% endif %}>Processing</option>
+              <option value="shipped"    {% if request.args.get('status') == 'shipped'    %}selected{% endif %}>Shipped</option>
+              <option value="delivered"  {% if request.args.get('status') == 'delivered'  %}selected{% endif %}>Delivered</option>
+              <option value="cancelled"  {% if request.args.get('status') == 'cancelled'  %}selected{% endif %}>Cancelled</option>
+            </select>
+            <button type="submit" class="filter-btn">Filter</button>
+            <a href="/orders" class="filter-btn" style="display:inline-flex;align-items:center;">Clear</a>
+          </form>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+
+              {# ── Jinja loop over Flask `orders` list ── #}
+              {% if orders %}
+                {% for order in orders %}
+                <tr id="order-row-{{ order.id }}">
+
+                  {# Order ID #}
+                  <td style="font-weight:700; color:var(--navy);">#{{ order.id }}</td>
+
+                  {# Customer name #}
+                  <td>{{ order.customer }}</td>
+
+                  {# Items — could be a count or a short description string #}
+                  <td>{{ order.items }}</td>
+
+                  {# Total — formatted as currency #}
+                  <td style="font-weight:650;">${{ "%.2f"|format(order.total) }}</td>
+
+                  {# Status badge — CSS class driven by value #}
+                  <td>
+                    <span class="status-badge badge-{{ order.status | lower }}">
+                      <span class="dot"></span>
+                      {{ order.status | capitalize }}
+                    </span>
+                  </td>
+
+                  {# Actions: View (modal) · Update status · Delete #}
+                  <td>
+                    <div class="row-actions">
+
+                      {# 1. View — opens the detail modal via JS #}
+                      <button type="button" class="view-btn"
+                        data-id="{{ order.id }}"
+                        data-customer="{{ order.customer }}"
+                        data-items="{{ order.items }}"
+                        data-total="{{ '%.2f'|format(order.total) }}"
+                        data-status="{{ order.status | capitalize }}"
+                        onclick="openModal(this)">
+                        View
+                      </button>
+
+                      {# 2. Update status — POST /update_order/<id> #}
+                      <form action="/update_order/{{ order.id }}" method="POST"
+                        class="status-form">
+                        <select name="new_status" class="status-select"
+                          aria-label="Change status for order {{ order.id }}">
+                          <option value="pending"    {% if order.status|lower == 'pending'    %}selected{% endif %}>Pending</option>
+                          <option value="processing" {% if order.status|lower == 'processing' %}selected{% endif %}>Processing</option>
+                          <option value="shipped"    {% if order.status|lower == 'shipped'    %}selected{% endif %}>Shipped</option>
+                          <option value="delivered"  {% if order.status|lower == 'delivered'  %}selected{% endif %}>Delivered</option>
+                          <option value="cancelled"  {% if order.status|lower == 'cancelled'  %}selected{% endif %}>Cancelled</option>
+                        </select>
+                        <button type="submit" class="update-btn">Save</button>
+                      </form>
+
+                      {# 3. Delete — POST /delete_order/<id> #}
+                      <form action="/delete_order/{{ order.id }}" method="POST">
+                        <button type="submit" class="delete-btn">Delete</button>
+                      </form>
+
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+
+              {% else %}
+                {# Empty state — no orders yet #}
+                <tr>
+                  <td colspan="6">
+                    <div class="empty-state">
+                      <svg width="32" height="32" fill="none" stroke="#c0c9d6" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+                      <p>No orders found. They will appear here once created.</p>
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </main>
+  </section>
+</div>
+
+<!-- ── Order detail modal ─────────────────────────────── -->
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modalTitle">Order details</h3>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Order ID</label>
+          <span id="modal-id">—</span>
+        </div>
+        <div class="detail-item">
+          <label>Status</label>
+          <span id="modal-status">—</span>
+        </div>
+        <hr class="detail-divider">
+        <div class="detail-item">
+          <label>Customer</label>
+          <span id="modal-customer">—</span>
+        </div>
+        <div class="detail-item">
+          <label>Total</label>
+          <span id="modal-total">—</span>
+        </div>
+        <hr class="detail-divider">
+        <div class="detail-item" style="grid-column: 1 / -1;">
+          <label>Items</label>
+          <span id="modal-items">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────── -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── Scripts ───────────────────────────────────────── -->
+<script>
+  /* Mobile sidebar */
+  document.getElementById('menuBtn').addEventListener('click', function () {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  /* Order detail modal */
+  function openModal(btn) {
+    document.getElementById('modal-id').textContent       = '#' + btn.dataset.id;
+    document.getElementById('modal-customer').textContent = btn.dataset.customer;
+    document.getElementById('modal-items').textContent    = btn.dataset.items;
+    document.getElementById('modal-total').textContent    = '$' + btn.dataset.total;
+    document.getElementById('modal-status').textContent   = btn.dataset.status;
+    document.getElementById('modalBackdrop').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalBackdrop').classList.remove('open');
+  }
+
+  /* Close modal on backdrop click */
+  document.getElementById('modalBackdrop').addEventListener('click', function (e) {
+    if (e.target === this) closeModal();
+  });
+
+  /* Close modal on Escape */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  /* Optional: show flash message passed as ?msg= in the redirect URL */
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var msg    = params.get('msg');
+    var toast  = document.getElementById('toast');
+    if (msg) {
+      toast.textContent = decodeURIComponent(msg);
+      toast.classList.add('show');
+      setTimeout(function () { toast.classList.remove('show'); }, 3000);
+    }
+  })();
+</script>
+
+</body>
+</html>

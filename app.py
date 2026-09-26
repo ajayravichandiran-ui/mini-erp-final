@@ -128,23 +128,20 @@ def add():
 
 @app.route('/')
 def index():
-    # 1. Connect to your SQLite database
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    # 2. Fetch the product names and their current stock levels
-    cursor.execute("SELECT name, stock FROM products")
+    # Fetch name, stock, AND price from the products table
+    cursor.execute("SELECT name, stock, price FROM products")
     inventory_data = cursor.fetchall()
     conn.close()
     
-    # 3. Separate the data into two lists for Chart.js
-    product_names = [row[0] for row in inventory_data]
-    stock_levels = [row[1] for row in inventory_data]
+    # Separate the data into lists for Jinja and Chart.js
+    labels = [item[0] for item in inventory_data]
+    data = [item[1] for item in inventory_data]
+    prices = [item[2] for item in inventory_data] # Extract the prices
     
-    # 4. Pass the lists into the HTML template
-    return render_template('index.html', 
-                           labels=product_names, 
-                           data=stock_levels)
+    # Pass the prices list to index.html
+    return render_template('index.html', labels=labels, data=data, prices=prices)
 
 @app.route('/add_item', methods=['POST'])
 def add_item():
@@ -363,33 +360,7 @@ def restock():
     conn.close()
     return redirect('/')
 
-@app.route('/suppliers', methods=['GET', 'POST'])
-def suppliers():
-    # RBAC Security Check
-    if 'username' not in session or session.get('role') != 'Manager':
-        flash("Security Alert: Only Managers can access Vendor data.", "error")
-        return redirect('/')
-        
-    conn = sqlite3.connect('erp_database.db')
-    cursor = conn.cursor()
-    
-    # If the form was submitted, add the new supplier
-    if request.method == 'POST':
-        name = request.form['name']
-        contact = request.form['contact']
-        email = request.form['email']
-        
-        cursor.execute("INSERT INTO suppliers (name, contact_person, email) VALUES (?, ?, ?)", (name, contact, email))
-        conn.commit()
-        flash(f"Success: Supplier {name} added to directory.", "success")
-        return redirect('/suppliers')
-        
-    # Fetch all suppliers to display on the page
-    cursor.execute("SELECT * FROM suppliers")
-    vendors = cursor.fetchall()
-    conn.close()
-    
-    return render_template('suppliers.html', vendors=vendors)
+
 
 @app.route('/api/inventory', methods=['GET'])
 def api_inventory():
@@ -416,6 +387,183 @@ def api_inventory():
         "total_items": len(inventory_list),
         "data": inventory_list
     })
+
+@app.route('/update_item/<item_name>', methods=['POST'])
+def update_item(item_name):
+    # Grab the new stock quantity from the form
+    new_stock = request.form['new_stock']
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Update the specific product in the database
+    cursor.execute("UPDATE products SET stock = ? WHERE name = ?", (new_stock, item_name))
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('index'))
+# 1. Load the Suppliers Page
+@app.route('/suppliers')
+def suppliers():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # ADD THIS LINE TEMPORARILY: Destroy the old misconfigured table
+    
+    # Automatically create the table if it is missing
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            contact TEXT NOT NULL,
+            email TEXT
+        )
+    ''')
+    
+    # Fetch all suppliers and pass them to the Jinja template
+    cursor.execute("SELECT id, name, contact, email FROM suppliers")
+    suppliers_data = cursor.fetchall()
+    conn.close()
+    
+    return render_template('suppliers.html', suppliers=suppliers_data)
+
+
+# 2. Add a New Supplier
+@app.route('/add_supplier', methods=['POST'])
+def add_supplier():
+    name = request.form['name']
+    contact = request.form['contact']
+    email = request.form['email']
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("INSERT INTO suppliers (name, contact, email) VALUES (?, ?, ?)", (name, contact, email))
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('suppliers'))
+
+
+# 3. Delete a Supplier
+@app.route('/delete_supplier/<int:supplier_id>', methods=['POST'])
+def delete_supplier(supplier_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Delete based on the unique ID
+    cursor.execute("DELETE FROM suppliers WHERE id = ?", (supplier_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('suppliers'))
+
+@app.route('/search')
+def search():
+    # Grab the search term from the URL (?q=...)
+    search_query = request.args.get('q', '')
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Query the database for matching item names, ignoring case
+    cursor.execute("SELECT name, stock FROM products WHERE name LIKE ?", ('%' + search_query + '%',))
+    search_results = cursor.fetchall()
+    conn.close()
+    
+    # Format the data exactly like the main index route for Chart.js and the Jinja loop
+    labels = [item[0] for item in search_results]
+    data = [item[1] for item in search_results]
+    
+    # Render the main dashboard, but only feed it the filtered search results
+    return render_template('index.html', labels=labels, data=data)
+
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
+
+# 1. Load the Orders Page & Handle Filtering
+@app.route('/orders')
+def orders():
+    status_filter = request.args.get('status', '')
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row 
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer TEXT NOT NULL,
+            items TEXT NOT NULL,
+            total REAL NOT NULL,
+            status TEXT DEFAULT 'pending'
+        )
+    ''')
+    
+    if status_filter:
+        cursor.execute("SELECT * FROM orders WHERE status = ?", (status_filter,))
+    else:
+        cursor.execute("SELECT * FROM orders")
+        
+    # THE FIX: Convert sqlite3.Row objects into standard Python dictionaries
+    orders_data = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return render_template('orders.html', orders=orders_data)
+
+# 2. Update Order Status
+@app.route('/update_order/<int:order_id>', methods=['POST'])
+def update_order(order_id):
+    new_status = request.form['new_status']
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('orders'))
+
+
+# 3. Delete an Order
+@app.route('/delete_order/<int:order_id>', methods=['POST'])
+def delete_order(order_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('orders'))
+
+@app.route('/seed_orders')
+def seed_orders():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES ('Tech Corp', '10x Laptops, 5x Mice', 12500.00, 'pending')")
+    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES ('Global Industries', '2x Server Racks', 4500.50, 'shipped')")
+    conn.commit()
+    conn.close()
+    return redirect(url_for('orders'))
+
+
+@app.route('/add_order', methods=['POST'])
+def add_order():
+    customer = request.form['customer']
+    items = request.form['items']
+    total = float(request.form['total'])
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # New orders default to 'pending' status
+    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES (?, ?, ?, 'pending')", 
+                   (customer, items, total))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('orders'))
 
 if __name__ == '__main__':
     app.run(debug=True)

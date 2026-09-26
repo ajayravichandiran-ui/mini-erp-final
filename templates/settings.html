@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Settings</title>
+  <style>
+    /* ── Paste all the exact same CSS from your index.html here ── */
+    :root { --navy: #172236; --muted: #6f7d90; --line: #e7ebf1; --blue: #3163e3; --bg: #f6f8fb; --green: #16855b; --red: #d64a4a; --amber: #d68b2f; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--navy); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input { font: inherit; } button { cursor: pointer; } h1, h2, h3 { margin: 0; } a { color: inherit; text-decoration: none; }
+    .erp-shell { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; flex: 0 0 240px; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 24px 14px 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 32px; font-size: 18px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--blue); color: #fff; font-weight: 800; font-size: 14px; }
+    .nav-label { margin: 0 12px 10px; color: #a0aaba; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; margin-bottom: 24px; }
+    .nav a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 6px; color: #738094; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; }
+    .nav a:hover, .nav a.active { color: var(--blue); background: #eef3ff; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; }
+    .profile { display: flex; align-items: center; gap: 9px; padding: 12px 8px 0; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #dfe8ff; color: #315abf; font-size: 11px; font-weight: 800; }
+    .profile-info strong { display: block; font-size: 12px; } .profile-info span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; height: 72px; padding: 0 36px; background: #fff; border-bottom: 1px solid var(--line); }
+    .topbar-left { display: flex; align-items: center; gap: 12px; } .topbar h1 { font-size: 18px; letter-spacing: -.03em; } .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .content { flex: 1; padding: 28px 36px 48px; max-width: 1400px; width: 100%; margin: 0 auto; }
+    .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; max-width: 800px;}
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; padding: 25px; }
+    .card-title { font-size: 15px; font-weight: 750; margin-bottom: 15px; border-bottom: 1px solid var(--line); padding-bottom: 10px;}
+    .field { display: grid; gap: 6px; margin-bottom: 14px; } .field label { color: #516075; font-size: 11px; font-weight: 700; }
+    .field input { width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; font-size: 12px; } .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    .primary-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: auto; padding: 10px 20px; border: 0; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 750; margin-top: 10px;}
+    .code-block { background: #f1f5f9; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; color: #334155; border: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+<div class="erp-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-mark">A</span> AJ ERP</div>
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg> Inventory</a>
+      <a href="/suppliers"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Suppliers</a>
+    </nav>
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="/settings" class="active"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</a>
+      <a href="/logout"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> Logout</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">AJ</span>
+        <div class="profile-info"><strong>Ajay R</strong><span>System Administrator</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div><h1>System Settings</h1><p>Manage your account, database, and API configurations.</p></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="dashboard-grid">
+        
+        <!-- Profile Settings -->
+        <article class="card">
+          <h2 class="card-title">Profile Information</h2>
+          <form class="form-body" action="#" method="POST">
+            <div class="field"><label>Administrator Name</label><input type="text" value="Ajay R" readonly></div>
+            <div class="field"><label>Role</label><input type="text" value="System Administrator" readonly></div>
+          </form>
+        </article>
+
+        <!-- API Integration Settings -->
+        <article class="card">
+          <h2 class="card-title">Developer & API Integrations</h2>
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 15px;">Use these endpoints to connect external applications, Android Studio builds, or embedded ESP32 hardware to your live database.</p>
+          
+          <div class="field">
+            <label>Live Inventory JSON Endpoint</label>
+            <div class="code-block">GET /api/inventory</div>
+          </div>
+          <div class="field">
+            <label>Hardware Trigger URL (Add/Deduct Stock)</label>
+            <div class="code-block">POST /api/hardware_update</div>
+          </div>
+        </article>
+
+      </section>
+    </main>
+  </section>
+</div>
+</body>
+</html>
