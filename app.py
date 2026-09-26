@@ -133,22 +133,6 @@ def logout():
     return redirect('/login')
 
 
-def add():
-    if 'username' not in session:
-        return redirect('/login')
-    name = request.form['name']
-    price = float(request.form['price'])
-    stock = int(request.form['stock'])
-    
-    conn = sqlite3.connect('erp_database.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO products (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
-    conn.commit()
-    conn.close()
-    
-    flash(f"Success: {name} added to inventory!", "success")
-    return redirect('/')
-
 @app.route('/')
 def index():
     conn = sqlite3.connect(DB_PATH)
@@ -296,28 +280,38 @@ def finance():
     conn = sqlite3.connect('erp_database.db')
     cursor = conn.cursor()
     
-    # 1. Detailed Sales Ledger (Shows every individual transaction for the table)
-    cursor.execute('''SELECT p.name, o.quantity, p.price, (o.quantity * p.price) AS revenue 
-                      FROM orders o JOIN products p ON o.product_id = p.id''')
+    # 1. Detailed Sales Ledger — join order_items → products to get price
+    cursor.execute('''
+        SELECT p.name, oi.quantity, p.price, (oi.quantity * p.price) AS revenue
+        FROM order_items oi
+        JOIN products p ON oi.product_name = p.name
+    ''')
     sales = cursor.fetchall()
-    
+
     # 2. Aggregated Data for the Chart (Groups revenue by product)
-    cursor.execute('''SELECT p.name, SUM(o.quantity * p.price) 
-                      FROM orders o JOIN products p ON o.product_id = p.id 
-                      GROUP BY p.name''')
+    cursor.execute('''
+        SELECT p.name, SUM(oi.quantity * p.price)
+        FROM order_items oi
+        JOIN products p ON oi.product_name = p.name
+        GROUP BY p.name
+    ''')
     chart_aggregation = cursor.fetchall()
-    
+
     # Prepare Data for Chart.js
     chart_labels = []
     chart_data = []
     for row in chart_aggregation:
-        chart_labels.append(row[0]) # Product Name
-        chart_data.append(row[1])   # Total Aggregated Revenue
-    
+        chart_labels.append(row[0])
+        chart_data.append(row[1])
+
     # 3. Calculate Grand Totals
-    cursor.execute('''SELECT SUM(o.quantity * p.price) FROM orders o JOIN products p ON o.product_id = p.id''')
+    cursor.execute('''
+        SELECT SUM(oi.quantity * p.price)
+        FROM order_items oi
+        JOIN products p ON oi.product_name = p.name
+    ''')
     total_revenue = cursor.fetchone()[0] or 0.0
-    
+
     cursor.execute('''SELECT SUM(total_cost) FROM purchases''')
     total_expenses = cursor.fetchone()[0] or 0.0
     
@@ -465,16 +459,16 @@ def search():
     cursor = conn.cursor()
     
     # Query the database for matching item names, ignoring case
-    cursor.execute("SELECT name, stock FROM products WHERE name LIKE ?", ('%' + search_query + '%',))
+    # Fetch name, stock AND price so index.html doesn't crash on {{ prices[i] }}
+    cursor.execute("SELECT name, stock, price FROM products WHERE name LIKE ?", ('%' + search_query + '%',))
     search_results = cursor.fetchall()
     conn.close()
-    
-    # Format the data exactly like the main index route for Chart.js and the Jinja loop
+
     labels = [item[0] for item in search_results]
-    data = [item[1] for item in search_results]
-    
-    # Render the main dashboard, but only feed it the filtered search results
-    return render_template('index.html', labels=labels, data=data)
+    data   = [item[1] for item in search_results]
+    prices = [item[2] for item in search_results]
+
+    return render_template('index.html', labels=labels, data=data, prices=prices)
 
 @app.route('/settings')
 def settings():
@@ -542,8 +536,15 @@ def delete_order(order_id):
 def seed_orders():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES ('Tech Corp', '10x Laptops, 5x Mice', 12500.00, 'pending')")
-    cursor.execute("INSERT INTO orders (customer, items, total, status) VALUES ('Global Industries', '2x Server Racks', 4500.50, 'shipped')")
+    # Insert parent order rows (no 'items' column in the new schema)
+    cursor.execute("INSERT INTO orders (customer, total, status) VALUES ('Tech Corp', 12500.00, 'pending')")
+    order1_id = cursor.lastrowid
+    cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, 'Laptop', 10)", (order1_id,))
+
+    cursor.execute("INSERT INTO orders (customer, total, status) VALUES ('Global Industries', 4500.50, 'shipped')")
+    order2_id = cursor.lastrowid
+    cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, 'Server Rack', 2)", (order2_id,))
+
     conn.commit()
     conn.close()
     return redirect(url_for('orders'))
