@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Procure to Pay</title>
+  <style>
+    :root { --navy:#172236; --muted:#6f7d90; --line:#e7ebf1; --blue:#3163e3; --bg:#f6f8fb; --green:#16855b; --red:#d64a4a; --amber:#d68b2f; --purple:#7c3aed; }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--navy);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+    button,input,select,textarea{font:inherit;} button{cursor:pointer;} h1,h2,h3{margin:0;} a{color:inherit;text-decoration:none;}
+
+    /* Shell */
+    .erp-shell{display:flex;min-height:100vh;}
+
+    /* Sidebar */
+    .sidebar{width:240px;flex:0 0 240px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:24px 14px 20px;}
+    .brand{display:flex;align-items:center;gap:10px;padding:0 12px 32px;font-size:18px;font-weight:750;letter-spacing:-.04em;}
+    .brand-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;background:var(--blue);color:#fff;font-weight:800;font-size:14px;}
+    .nav-label{margin:0 12px 10px;color:#a0aaba;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+    .nav{display:grid;gap:3px;margin-bottom:24px;}
+    .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:6px;color:#738094;font-size:13px;font-weight:600;transition:background .15s,color .15s;}
+    .nav a:hover,.nav a.active{color:var(--blue);background:#eef3ff;}
+    .sidebar-bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:18px;}
+    .profile{display:flex;align-items:center;gap:9px;padding:12px 8px 0;}
+    .avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#dfe8ff;color:#315abf;font-size:11px;font-weight:800;}
+    .profile-info strong{display:block;font-size:12px;} .profile-info span{display:block;margin-top:2px;color:var(--muted);font-size:10px;}
+
+    /* Main */
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+    .topbar{display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 36px;background:#fff;border-bottom:1px solid var(--line);}
+    .topbar-left{display:flex;align-items:center;gap:12px;}
+    .topbar h1{font-size:18px;letter-spacing:-.03em;} .topbar p{margin:4px 0 0;color:var(--muted);font-size:11px;}
+    .content{flex:1;padding:28px 36px 48px;max-width:1500px;width:100%;margin:0 auto;}
+
+    /* P2P Flow Banner */
+    .flow-banner{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 24px;margin-bottom:24px;display:flex;align-items:center;gap:0;overflow-x:auto;}
+    .flow-step{display:flex;align-items:center;gap:0;flex-shrink:0;}
+    .flow-node{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 16px;}
+    .flow-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:8px;font-size:16px;}
+    .flow-icon.pr{background:#eef3ff;} .flow-icon.rfq{background:#fffbeb;} .flow-icon.po{background:#f0fdf4;}
+    .flow-icon.grn{background:#fdf4ff;} .flow-icon.inv{background:#fff1f1;}
+    .flow-label{font-size:10px;font-weight:750;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;}
+    .flow-arrow{color:#c8d0da;font-size:18px;padding:0 4px;}
+
+    /* Tabs */
+    .tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:20px;}
+    .tab{padding:10px 18px;border:none;background:none;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;}
+    .tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+    .tab-panel{display:none;} .tab-panel.active{display:block;}
+
+    /* Metrics */
+    .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+    .metric{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
+    .metric-header{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;font-weight:650;}
+    .metric-value{margin-top:8px;font-size:22px;font-weight:750;letter-spacing:-.04em;}
+    .metric-sub{margin-top:3px;font-size:10px;font-weight:650;color:var(--muted);}
+
+    /* Grid */
+    .panel-grid{display:grid;grid-template-columns:minmax(280px,.75fr) minmax(0,1.6fr);gap:18px;align-items:start;}
+
+    /* Cards */
+    .card{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+    .card-header{padding:18px 22px 14px;border-bottom:1px solid var(--line);}
+    .card-title{font-size:13px;font-weight:750;} .card-subtitle{margin-top:3px;color:var(--muted);font-size:11px;}
+
+    /* Form */
+    .form-body{padding:16px 22px 20px;}
+    .field{display:grid;gap:5px;margin-bottom:12px;}
+    .field label{color:#516075;font-size:11px;font-weight:700;}
+    .field input,.field select,.field textarea{width:100%;padding:9px 10px;border:1px solid #dce2ea;border-radius:5px;outline:none;font-size:12px;color:var(--navy);background:#fff;}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px #eaf0ff;}
+    .field textarea{resize:vertical;min-height:60px;}
+    .primary-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:14px;padding:10px 14px;border:0;border-radius:5px;background:var(--blue);color:#fff;font-size:12px;font-weight:750;}
+    .primary-btn:hover{background:#2755ce;}
+
+    /* Table */
+    .table-wrap{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;}
+    thead tr{border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+    th{padding:9px 16px;color:#8995a5;font-size:10px;font-weight:750;letter-spacing:.07em;text-align:left;text-transform:uppercase;}
+    td{padding:12px 16px;border-bottom:1px solid #eef1f5;color:#3b495c;font-size:12px;}
+    tr:last-child td{border-bottom:none;}
+
+    /* Badges */
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:750;}
+    .badge-dot{width:5px;height:5px;border-radius:50%;}
+    .badge.draft     {background:#f1f5f9;color:#64748b;} .badge.draft .badge-dot{background:#94a3b8;}
+    .badge.pending   {background:#fff8e6;color:#b07a1a;} .badge.pending .badge-dot{background:var(--amber);}
+    .badge.approved  {background:#eef3ff;color:#3163e3;} .badge.approved .badge-dot{background:var(--blue);}
+    .badge.sent      {background:#f5f0ff;color:#7c3aed;} .badge.sent .badge-dot{background:var(--purple);}
+    .badge.ordered   {background:#e6f5ef;color:#16855b;} .badge.ordered .badge-dot{background:var(--green);}
+    .badge.received  {background:#e6f5ef;color:#16855b;} .badge.received .badge-dot{background:var(--green);}
+    .badge.invoiced  {background:#fff8e6;color:#b07a1a;} .badge.invoiced .badge-dot{background:var(--amber);}
+    .badge.paid      {background:#e6f5ef;color:#16855b;} .badge.paid .badge-dot{background:var(--green);}
+    .badge.cancelled {background:#fef1f1;color:#b83333;} .badge.cancelled .badge-dot{background:var(--red);}
+
+    /* Row actions */
+    .row-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+    .action-select{padding:5px 8px;border:1px solid #dce2ea;border-radius:4px;font-size:11px;font-weight:600;background:#fff;color:var(--navy);outline:none;}
+    .save-btn{padding:5px 10px;border:1px solid #dfe5ed;border-radius:4px;background:#fff;color:#5c6a7e;font-size:11px;font-weight:700;}
+    .save-btn:hover{border-color:var(--blue);color:var(--blue);}
+    .delete-btn{padding:5px 10px;border:1px solid rgba(214,74,74,.3);border-radius:4px;background:rgba(214,74,74,.07);color:var(--red);font-size:11px;font-weight:700;}
+    .delete-btn:hover{background:var(--red);color:#fff;border-color:var(--red);}
+    .view-btn{padding:5px 10px;border:1px solid #dfe5ed;border-radius:4px;background:#fff;color:#5c6a7e;font-size:11px;font-weight:700;}
+    .view-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+    /* Empty state */
+    .empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:12px;}
+
+    /* Flash */
+    .flash{padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:12px;font-weight:600;}
+    .flash.success{background:#e6f5ef;color:#16855b;border:1px solid #b7dfc9;}
+    .flash.error{background:#fef1f1;color:#b83333;border:1px solid #f5c0c0;}
+
+    /* Modal */
+    .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;}
+    .modal-backdrop.open{display:flex;}
+    .modal{background:#fff;border-radius:10px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--line);}
+    .modal-title{font-size:14px;font-weight:750;}
+    .modal-close{display:grid;place-items:center;width:28px;height:28px;border:0;background:none;font-size:20px;color:var(--muted);cursor:pointer;border-radius:4px;}
+    .modal-close:hover{background:var(--bg);}
+    .modal-body{padding:20px 24px 24px;}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;}
+    .detail-item label{display:block;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+    .detail-item span{font-size:12px;font-weight:600;color:var(--navy);}
+    .detail-item.full{grid-column:1/-1;}
+    .detail-divider{grid-column:1/-1;border:none;border-top:1px solid var(--line);margin:4px 0;}
+  </style>
+</head>
+<body>
+<div class="erp-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">A</span> AJ ERP</div>
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg> Inventory</a>
+      <a href="/orders"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg> Orders</a>
+      <a href="/suppliers"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Suppliers</a>
+      <a href="/repairs"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Repairs</a>
+      <a href="/p2p" class="active"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Procure to Pay</a>
+      <a href="/finance">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+        Finance
+      </a>
+    </nav>
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="/settings"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</a>
+      <a href="/logout"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> Logout</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">AJ</span>
+        <div class="profile-info"><strong>Ajay R</strong><span>System Administrator</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <section class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div><h1>Procure to Pay</h1><p>PR → RFQ → PO → GRN → Invoice → Payment</p></div>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}{% endif %}
+      {% endwith %}
+
+      <!-- P2P Flow Banner -->
+      <div class="flow-banner">
+        <div class="flow-step">
+          <div class="flow-node"><div class="flow-icon pr">📋</div><span class="flow-label">PR</span></div>
+          <span class="flow-arrow">›</span>
+          <div class="flow-node"><div class="flow-icon rfq">📨</div><span class="flow-label">RFQ</span></div>
+          <span class="flow-arrow">›</span>
+          <div class="flow-node"><div class="flow-icon po">🛒</div><span class="flow-label">PO</span></div>
+          <span class="flow-arrow">›</span>
+          <div class="flow-node"><div class="flow-icon grn">📦</div><span class="flow-label">GRN</span></div>
+          <span class="flow-arrow">›</span>
+          <div class="flow-node"><div class="flow-icon inv">💳</div><span class="flow-label">Invoice</span></div>
+          <span class="flow-arrow">›</span>
+          <div class="flow-node"><div class="flow-icon inv">✅</div><span class="flow-label">Payment</span></div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <section class="metrics">
+        <div class="metric">
+          <div class="metric-header"><span>Total PRs</span></div>
+          <div class="metric-value">{{ prs | length }}</div>
+          <div class="metric-sub">Purchase Requisitions</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Open RFQs</span></div>
+          <div class="metric-value">{{ rfqs | selectattr('status','equalto','sent') | list | length }}</div>
+          <div class="metric-sub">Awaiting quotes</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Active POs</span></div>
+          <div class="metric-value">{{ pos | selectattr('status','equalto','ordered') | list | length }}</div>
+          <div class="metric-sub">With vendors</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Pending GRNs</span></div>
+          <div class="metric-value">{{ grns | selectattr('status','equalto','pending') | list | length }}</div>
+          <div class="metric-sub">Awaiting receipt</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Unpaid Invoices</span></div>
+          <div class="metric-value">{{ invoices | selectattr('status','equalto','invoiced') | list | length }}</div>
+          <div class="metric-sub">Pending payment</div>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('pr',this)">📋 Purchase Requisition</button>
+        <button class="tab" onclick="switchTab('rfq',this)">📨 RFQ</button>
+        <button class="tab" onclick="switchTab('po',this)">🛒 Purchase Order</button>
+        <button class="tab" onclick="switchTab('grn',this)">📦 GRN</button>
+        <button class="tab" onclick="switchTab('invoice',this)">💳 Invoice & Payment</button>
+      </div>
+
+      <!-- ══════════════════ TAB 1: PR ══════════════════ -->
+      <div id="tab-pr" class="tab-panel active">
+        <div class="panel-grid">
+
+          <!-- PR Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Raise Purchase Requisition</h2>
+              <p class="card-subtitle">Internal request for goods or services</p>
+            </div>
+            <div class="form-body">
+              <form action="/p2p/pr/add" method="POST">
+                <div class="field"><label>Item / Material</label><input type="text" name="item_name" placeholder="e.g. Office Laptops" required></div>
+                <div class="field"><label>Quantity</label><input type="number" name="quantity" min="1" placeholder="10" required></div>
+                <div class="field"><label>Required by Date</label><input type="date" name="required_date" required></div>
+                <div class="field"><label>Department</label>
+                  <select name="department">
+                    <option>IT</option><option>Finance</option><option>HR</option><option>Operations</option><option>Warehouse</option>
+                  </select>
+                </div>
+                <div class="field"><label>Reason / Justification</label><textarea name="reason" placeholder="Why is this needed?"></textarea></div>
+                <button type="submit" class="primary-btn">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Submit PR
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- PR Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Purchase Requisitions</h2>
+              <p class="card-subtitle">Approve or reject internal requests</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Dept</th><th>Required By</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for pr in prs %}
+                  <tr>
+                    <td style="font-weight:700;color:var(--muted);">PR-{{ pr.id }}</td>
+                    <td style="font-weight:650;">{{ pr.item_name }}</td>
+                    <td>{{ pr.quantity }}</td>
+                    <td>{{ pr.department }}</td>
+                    <td style="color:var(--muted);">{{ pr.required_date }}</td>
+                    <td><span class="badge {{ pr.status }}"><span class="badge-dot"></span>{{ pr.status | title }}</span></td>
+                    <td>
+                      <div class="row-actions">
+                        <form action="/p2p/pr/update/{{ pr.id }}" method="POST" style="display:flex;gap:4px;">
+                          <select name="new_status" class="action-select">
+                            <option value="pending"   {% if pr.status=='pending'   %}selected{% endif %}>Pending</option>
+                            <option value="approved"  {% if pr.status=='approved'  %}selected{% endif %}>Approved</option>
+                            <option value="cancelled" {% if pr.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+                          </select>
+                          <button type="submit" class="save-btn">Save</button>
+                        </form>
+                        <form action="/p2p/pr/delete/{{ pr.id }}" method="POST">
+                          <button type="submit" class="delete-btn" onclick="return confirm('Delete PR-{{ pr.id }}?')">Del</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="7"><div class="empty">No PRs raised yet.</div></td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ TAB 2: RFQ ══════════════════ -->
+      <div id="tab-rfq" class="tab-panel">
+        <div class="panel-grid">
+
+          <!-- RFQ Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Create RFQ</h2>
+              <p class="card-subtitle">Send quotation request to a supplier</p>
+            </div>
+            <div class="form-body">
+              <form action="/p2p/rfq/add" method="POST">
+                <div class="field"><label>PR Reference</label>
+                  <select name="pr_id" required>
+                    <option value="">— Select Approved PR —</option>
+                    {% for pr in prs if pr.status == 'approved' %}
+                    <option value="{{ pr.id }}">PR-{{ pr.id }} — {{ pr.item_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Supplier</label>
+                  <select name="supplier_id" required>
+                    <option value="">— Select Supplier —</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Quoted Price (₹)</label><input type="number" name="quoted_price" step="0.01" min="0" placeholder="0.00"></div>
+                <div class="field"><label>Delivery Days</label><input type="number" name="delivery_days" min="1" placeholder="e.g. 7"></div>
+                <div class="field"><label>Notes</label><textarea name="notes" placeholder="Payment terms, conditions…"></textarea></div>
+                <button type="submit" class="primary-btn">Send RFQ</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- RFQ Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Quotations Received</h2>
+              <p class="card-subtitle">Compare and select the best vendor</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>PR Ref</th><th>Supplier</th><th>Quoted Price</th><th>Delivery Days</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for r in rfqs %}
+                  <tr>
+                    <td style="font-weight:700;color:var(--muted);">RFQ-{{ r.id }}</td>
+                    <td>PR-{{ r.pr_id }}</td>
+                    <td style="font-weight:650;">{{ r.supplier_name }}</td>
+                    <td style="font-weight:700;">{% if r.quoted_price %}₹{{ "%.2f"|format(r.quoted_price) }}{% else %}—{% endif %}</td>
+                    <td>{% if r.delivery_days %}{{ r.delivery_days }} days{% else %}—{% endif %}</td>
+                    <td><span class="badge {{ r.status }}"><span class="badge-dot"></span>{{ r.status | title }}</span></td>
+                    <td>
+                      <div class="row-actions">
+                        <form action="/p2p/rfq/update/{{ r.id }}" method="POST" style="display:flex;gap:4px;">
+                          <select name="new_status" class="action-select">
+                            <option value="sent"      {% if r.status=='sent'      %}selected{% endif %}>Sent</option>
+                            <option value="received"  {% if r.status=='received'  %}selected{% endif %}>Received</option>
+                            <option value="approved"  {% if r.status=='approved'  %}selected{% endif %}>Approved</option>
+                            <option value="cancelled" {% if r.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+                          </select>
+                          <button type="submit" class="save-btn">Save</button>
+                        </form>
+                        <form action="/p2p/rfq/delete/{{ r.id }}" method="POST">
+                          <button type="submit" class="delete-btn" onclick="return confirm('Delete RFQ-{{ r.id }}?')">Del</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="7"><div class="empty">No RFQs created yet.</div></td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ TAB 3: PO ══════════════════ -->
+      <div id="tab-po" class="tab-panel">
+        <div class="panel-grid">
+
+          <!-- PO Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Create Purchase Order</h2>
+              <p class="card-subtitle">Formal order sent to selected vendor</p>
+            </div>
+            <div class="form-body">
+              <form action="/p2p/po/add" method="POST">
+                <div class="field"><label>RFQ Reference</label>
+                  <select name="rfq_id" required>
+                    <option value="">— Select Approved RFQ —</option>
+                    {% for r in rfqs if r.status == 'approved' %}
+                    <option value="{{ r.id }}">RFQ-{{ r.id }} — {{ r.supplier_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Item Description</label><input type="text" name="item_name" placeholder="e.g. Dell Laptops x10" required></div>
+                <div class="field"><label>Quantity</label><input type="number" name="quantity" min="1" placeholder="10" required></div>
+                <div class="field"><label>Unit Price (₹)</label><input type="number" name="unit_price" step="0.01" min="0" placeholder="0.00" required></div>
+                <div class="field"><label>Expected Delivery Date</label><input type="date" name="delivery_date" required></div>
+                <button type="submit" class="primary-btn">Create PO</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- PO Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Purchase Orders</h2>
+              <p class="card-subtitle">Track orders placed with vendors</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>RFQ Ref</th><th>Item</th><th>Qty</th><th>Total Value</th><th>Delivery By</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for po in pos %}
+                  <tr>
+                    <td style="font-weight:700;color:var(--muted);">PO-{{ po.id }}</td>
+                    <td>RFQ-{{ po.rfq_id }}</td>
+                    <td style="font-weight:650;">{{ po.item_name }}</td>
+                    <td>{{ po.quantity }}</td>
+                    <td style="font-weight:700;">₹{{ "%.2f"|format(po.total_value) }}</td>
+                    <td style="color:var(--muted);">{{ po.delivery_date }}</td>
+                    <td><span class="badge {{ po.status }}"><span class="badge-dot"></span>{{ po.status | title }}</span></td>
+                    <td>
+                      <div class="row-actions">
+                        <form action="/p2p/po/update/{{ po.id }}" method="POST" style="display:flex;gap:4px;">
+                          <select name="new_status" class="action-select">
+                            <option value="ordered"   {% if po.status=='ordered'   %}selected{% endif %}>Ordered</option>
+                            <option value="received"  {% if po.status=='received'  %}selected{% endif %}>Received</option>
+                            <option value="cancelled" {% if po.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+                          </select>
+                          <button type="submit" class="save-btn">Save</button>
+                        </form>
+                        <form action="/p2p/po/delete/{{ po.id }}" method="POST">
+                          <button type="submit" class="delete-btn" onclick="return confirm('Delete PO-{{ po.id }}?')">Del</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="8"><div class="empty">No Purchase Orders created yet.</div></td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ TAB 4: GRN ══════════════════ -->
+      <div id="tab-grn" class="tab-panel">
+        <div class="panel-grid">
+
+          <!-- GRN Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Record Goods Receipt</h2>
+              <p class="card-subtitle">Log delivery and update inventory</p>
+            </div>
+            <div class="form-body">
+              <form action="/p2p/grn/add" method="POST">
+                <div class="field"><label>PO Reference</label>
+                  <select name="po_id" required>
+                    <option value="">— Select Purchase Order —</option>
+                    {% for po in pos if po.status == 'ordered' %}
+                    <option value="{{ po.id }}">PO-{{ po.id }} — {{ po.item_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Received Quantity</label><input type="number" name="received_qty" min="1" placeholder="10" required></div>
+                <div class="field"><label>Received Date</label><input type="date" name="received_date" required></div>
+                <div class="field"><label>Condition</label>
+                  <select name="condition">
+                    <option value="good">Good — All items OK</option>
+                    <option value="partial">Partial — Some items damaged</option>
+                    <option value="rejected">Rejected — Return to vendor</option>
+                  </select>
+                </div>
+                <div class="field"><label>Inventory Item to Update</label>
+                  <select name="product_name">
+                    <option value="">— Link to inventory item (optional) —</option>
+                    {% for p in products %}
+                    <option value="{{ p[0] }}">{{ p[0] }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Remarks</label><textarea name="remarks" placeholder="Inspector notes, batch number…"></textarea></div>
+                <button type="submit" class="primary-btn">Record GRN</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- GRN Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Goods Receipt Notes</h2>
+              <p class="card-subtitle">All received deliveries — stock auto-updated on receipt</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>PO Ref</th><th>Received Qty</th><th>Date</th><th>Condition</th><th>Inventory Updated</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for g in grns %}
+                  <tr>
+                    <td style="font-weight:700;color:var(--muted);">GRN-{{ g.id }}</td>
+                    <td>PO-{{ g.po_id }}</td>
+                    <td>{{ g.received_qty }}</td>
+                    <td style="color:var(--muted);">{{ g.received_date }}</td>
+                    <td>
+                      {% if g.condition == 'good' %}<span style="color:var(--green);font-weight:700;">✔ Good</span>
+                      {% elif g.condition == 'partial' %}<span style="color:var(--amber);font-weight:700;">⚠ Partial</span>
+                      {% else %}<span style="color:var(--red);font-weight:700;">✘ Rejected</span>{% endif %}
+                    </td>
+                    <td style="font-size:11px;color:var(--muted);">{{ g.product_name or '—' }}</td>
+                    <td><span class="badge {{ g.status }}"><span class="badge-dot"></span>{{ g.status | title }}</span></td>
+                    <td>
+                      <div class="row-actions">
+                        <form action="/p2p/grn/update/{{ g.id }}" method="POST" style="display:flex;gap:4px;">
+                          <select name="new_status" class="action-select">
+                            <option value="pending"   {% if g.status=='pending'   %}selected{% endif %}>Pending</option>
+                            <option value="received"  {% if g.status=='received'  %}selected{% endif %}>Received</option>
+                            <option value="cancelled" {% if g.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+                          </select>
+                          <button type="submit" class="save-btn">Save</button>
+                        </form>
+                        <form action="/p2p/grn/delete/{{ g.id }}" method="POST">
+                          <button type="submit" class="delete-btn" onclick="return confirm('Delete GRN-{{ g.id }}?')">Del</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="8"><div class="empty">No GRNs recorded yet.</div></td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ TAB 5: INVOICE ══════════════════ -->
+      <div id="tab-invoice" class="tab-panel">
+        <div class="panel-grid">
+
+          <!-- Invoice Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Record Vendor Invoice</h2>
+              <p class="card-subtitle">Match invoice against PO and GRN</p>
+            </div>
+            <div class="form-body">
+              <form action="/p2p/invoice/add" method="POST">
+                <div class="field"><label>PO Reference</label>
+                  <select name="po_id" required>
+                    <option value="">— Select Purchase Order —</option>
+                    {% for po in pos %}
+                    <option value="{{ po.id }}">PO-{{ po.id }} — {{ po.item_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field"><label>Invoice Number</label><input type="text" name="invoice_number" placeholder="e.g. INV-2024-001" required></div>
+                <div class="field"><label>Invoice Amount (₹)</label><input type="number" name="amount" step="0.01" min="0" placeholder="0.00" required></div>
+                <div class="field"><label>Invoice Date</label><input type="date" name="invoice_date" required></div>
+                <div class="field"><label>Due Date</label><input type="date" name="due_date"></div>
+                <div class="field"><label>Notes</label><textarea name="notes" placeholder="Tax details, payment terms…"></textarea></div>
+                <button type="submit" class="primary-btn">Record Invoice</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Invoice Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Invoices & Payments</h2>
+              <p class="card-subtitle">Verify and mark invoices as paid (AP)</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Invoice No.</th><th>PO Ref</th><th>Amount</th><th>Invoice Date</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for inv in invoices %}
+                  <tr>
+                    <td style="font-weight:700;color:var(--muted);">{{ inv.id }}</td>
+                    <td style="font-weight:650;">{{ inv.invoice_number }}</td>
+                    <td>PO-{{ inv.po_id }}</td>
+                    <td style="font-weight:700;">₹{{ "%.2f"|format(inv.amount) }}</td>
+                    <td style="color:var(--muted);">{{ inv.invoice_date }}</td>
+                    <td style="color:var(--muted);">{{ inv.due_date or '—' }}</td>
+                    <td><span class="badge {{ inv.status }}"><span class="badge-dot"></span>{{ inv.status | title }}</span></td>
+                    <td>
+                      <div class="row-actions">
+                        <form action="/p2p/invoice/update/{{ inv.id }}" method="POST" style="display:flex;gap:4px;">
+                          <select name="new_status" class="action-select">
+                            <option value="invoiced"  {% if inv.status=='invoiced'  %}selected{% endif %}>Invoiced</option>
+                            <option value="approved"  {% if inv.status=='approved'  %}selected{% endif %}>Approved</option>
+                            <option value="paid"      {% if inv.status=='paid'      %}selected{% endif %}>Paid</option>
+                            <option value="cancelled" {% if inv.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+                          </select>
+                          <button type="submit" class="save-btn">Save</button>
+                        </form>
+                        <form action="/p2p/invoice/delete/{{ inv.id }}" method="POST">
+                          <button type="submit" class="delete-btn" onclick="return confirm('Delete invoice {{ inv.invoice_number }}?')">Del</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="8"><div class="empty">No invoices recorded yet.</div></td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </section>
+</div>
+
+<script>
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // Auto-open tab from URL hash
+  const hash = window.location.hash.replace('#','');
+  if (hash) {
+    const btn = document.querySelector('.tab[onclick*="' + hash + '"]');
+    if (btn) switchTab(hash, btn);
+  }
+</script>
+</body>
+</html>

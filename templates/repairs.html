@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Repair Jobs</title>
+  <style>
+    :root { --navy: #172236; --muted: #6f7d90; --line: #e7ebf1; --blue: #3163e3; --bg: #f6f8fb; --green: #16855b; --red: #d64a4a; --amber: #d68b2f; --purple: #7c3aed; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--navy); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select, textarea { font: inherit; } button { cursor: pointer; } h1, h2, h3 { margin: 0; } a { color: inherit; text-decoration: none; }
+
+    /* Shell */
+    .erp-shell { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar { width: 240px; flex: 0 0 240px; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 24px 14px 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 32px; font-size: 18px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--blue); color: #fff; font-weight: 800; font-size: 14px; }
+    .nav-label { margin: 0 12px 10px; color: #a0aaba; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; margin-bottom: 24px; }
+    .nav a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 6px; color: #738094; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; }
+    .nav a:hover, .nav a.active { color: var(--blue); background: #eef3ff; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; }
+    .profile { display: flex; align-items: center; gap: 9px; padding: 12px 8px 0; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #dfe8ff; color: #315abf; font-size: 11px; font-weight: 800; }
+    .profile-info strong { display: block; font-size: 12px; } .profile-info span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+
+    /* Main */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; height: 72px; padding: 0 36px; background: #fff; border-bottom: 1px solid var(--line); }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { font-size: 18px; letter-spacing: -.03em; }
+    .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .content { flex: 1; padding: 28px 36px 48px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+    /* Metrics */
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .metric { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
+    .metric-header { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .metric-value { margin-top: 10px; font-size: 24px; font-weight: 750; letter-spacing: -.04em; }
+    .metric-sub { margin-top: 4px; font-size: 11px; font-weight: 650; color: var(--muted); }
+    .metric-sub.pending { color: var(--amber); }
+    .metric-sub.done    { color: var(--green); }
+
+    /* Grid layout */
+    .dashboard-grid { display: grid; grid-template-columns: minmax(290px, .8fr) minmax(0, 1.6fr); gap: 18px; align-items: start; }
+
+    /* Cards */
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 20px 22px 14px; }
+    .card-title { font-size: 13px; font-weight: 750; }
+    .card-subtitle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+
+    /* Form */
+    .form-body { padding: 0 22px 22px; }
+    .field { display: grid; gap: 6px; margin-bottom: 14px; }
+    .field label { color: #516075; font-size: 11px; font-weight: 700; }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: 9px 10px;
+      border: 1px solid #dce2ea; border-radius: 5px;
+      outline: none; font-size: 12px; color: var(--navy); background: #fff;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    .field textarea { resize: vertical; min-height: 70px; }
+    .primary-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; margin-top: 18px; padding: 10px 14px;
+      border: 0; border-radius: 5px;
+      background: var(--blue); color: #fff; font-size: 12px; font-weight: 750;
+    }
+    .primary-btn:hover { background: #2755ce; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    th { padding: 9px 18px; color: #8995a5; font-size: 10px; font-weight: 750; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+    td { padding: 13px 18px; border-bottom: 1px solid #eef1f5; color: #3b495c; font-size: 12px; }
+
+    /* Status badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 10px; font-weight: 750; letter-spacing: .04em;
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge.pending  { background: #fff8e6; color: #b07a1a; }
+    .badge.pending  .badge-dot { background: var(--amber); }
+    .badge.in-progress { background: #eef3ff; color: #3163e3; }
+    .badge.in-progress .badge-dot { background: var(--blue); }
+    .badge.completed { background: #e6f5ef; color: #16855b; }
+    .badge.completed .badge-dot { background: var(--green); }
+    .badge.cancelled { background: #fef1f1; color: #b83333; }
+    .badge.cancelled .badge-dot { background: var(--red); }
+
+    /* Action buttons */
+    .row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .action-select {
+      padding: 5px 8px; border: 1px solid #dce2ea; border-radius: 4px;
+      font-size: 11px; font-weight: 600; background: #fff; color: var(--navy);
+      outline: none;
+    }
+    .action-select:focus { border-color: var(--blue); }
+    .update-btn {
+      padding: 5px 10px; border: 1px solid #dfe5ed; border-radius: 4px;
+      background: #fff; color: #5c6a7e; font-size: 11px; font-weight: 700;
+    }
+    .update-btn:hover { border-color: var(--blue); color: var(--blue); background: #f4f8ff; }
+    .delete-btn {
+      padding: 5px 10px; border: 1px solid rgba(214,74,74,.3); border-radius: 4px;
+      background: rgba(214,74,74,.07); color: var(--red); font-size: 11px; font-weight: 700;
+    }
+    .delete-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    /* Priority pill */
+    .priority { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 750; }
+    .priority.low  { background: #f0fdf4; color: #15803d; }
+    .priority.medium { background: #fffbeb; color: #b45309; }
+    .priority.high { background: #fef2f2; color: #b91c1c; }
+
+    /* Flash messages */
+    .flash-msg { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; font-weight: 600; }
+    .flash-msg.success { background: #e6f5ef; color: #16855b; border: 1px solid #b7dfc9; }
+    .flash-msg.error   { background: #fef1f1; color: #b83333; border: 1px solid #f5c0c0; }
+  </style>
+</head>
+<body>
+<div class="erp-shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">A</span> AJ ERP</div>
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>
+        Inventory
+      </a>
+      <a href="/orders">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        Orders
+      </a>
+      <a href="/suppliers">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Suppliers
+      </a>
+      <a href="/repairs" class="active">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        Repairs
+      </a>
+      <a href="/p2p">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Procure to Pay
+      </a>
+      <a href="/finance">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+        Finance
+      </a>
+    </nav>
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="/settings">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <a href="/logout">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Logout
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">AJ</span>
+        <div class="profile-info"><strong>Ajay R</strong><span>System Administrator</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <section class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <h1>Repair Jobs</h1>
+          <p>Track and manage client repair requests</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash-msg {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Metric strip -->
+      <section class="metrics">
+        <div class="metric">
+          <div class="metric-header">
+            <span>Total Jobs</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <div class="metric-value">{{ repairs | length }}</div>
+          <div class="metric-sub">All time</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header">
+            <span>Pending</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="metric-value">{{ repairs | selectattr('status', 'equalto', 'pending') | list | length }}</div>
+          <div class="metric-sub pending">Awaiting action</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header">
+            <span>In Progress</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </div>
+          <div class="metric-value">{{ repairs | selectattr('status', 'equalto', 'in-progress') | list | length }}</div>
+          <div class="metric-sub" style="color: var(--blue);">Being worked on</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header">
+            <span>Completed</span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="metric-value">{{ repairs | selectattr('status', 'equalto', 'completed') | list | length }}</div>
+          <div class="metric-sub done">Delivered</div>
+        </div>
+      </section>
+
+      <!-- Dashboard grid -->
+      <section class="dashboard-grid">
+
+        <!-- Add Repair Job Form -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Log new repair job</h2>
+            <p class="card-subtitle">Register a client's repair request</p>
+          </div>
+          <div class="form-body">
+            <form action="/repairs/add" method="POST">
+
+              <div class="field">
+                <label>Client name</label>
+                <input type="text" name="client_name" placeholder="e.g. Ravi Kumar" required>
+              </div>
+
+              <div class="field">
+                <label>Contact number</label>
+                <input type="text" name="client_contact" placeholder="e.g. +91 98765 43210" required>
+              </div>
+
+              <div class="field">
+                <label>Device / Item</label>
+                <input type="text" name="device" placeholder="e.g. Dell Laptop, iPhone 13" required>
+              </div>
+
+              <div class="field">
+                <label>Issue description</label>
+                <textarea name="issue" placeholder="Describe the problem reported by the client…" required></textarea>
+              </div>
+
+              <div class="field">
+                <label>Estimated cost (₹)</label>
+                <input type="number" name="estimated_cost" min="0" step="0.01" placeholder="0.00">
+              </div>
+
+              <div class="field">
+                <label>Priority</label>
+                <select name="priority">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <button type="submit" class="primary-btn">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Repair Job
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Repair Jobs Table -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Active repair jobs</h2>
+            <p class="card-subtitle">Update status or remove completed records</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Client</th>
+                  <th>Device</th>
+                  <th>Issue</th>
+                  <th>Priority</th>
+                  <th>Est. Cost</th>
+                  <th>Status</th>
+                  <th>Logged on</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in repairs %}
+                <tr>
+                  <td style="color: var(--muted); font-weight: 700;">{{ r.id }}</td>
+                  <td>
+                    <div style="font-weight: 700; font-size: 12px;">{{ r.client_name }}</div>
+                    <div style="color: var(--muted); font-size: 10px; margin-top: 2px;">{{ r.client_contact }}</div>
+                  </td>
+                  <td style="font-weight: 650;">{{ r.device }}</td>
+                  <td style="max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ r.issue }}">{{ r.issue }}</td>
+                  <td>
+                    <span class="priority {{ r.priority }}">{{ r.priority | upper }}</span>
+                  </td>
+                  <td style="font-weight: 700;">
+                    {% if r.estimated_cost %}₹{{ "%.2f" | format(r.estimated_cost) }}{% else %}—{% endif %}
+                  </td>
+                  <td>
+                    {% set s = r.status %}
+                    <span class="badge {{ s }}">
+                      <span class="badge-dot"></span>
+                      {{ s | replace('-', ' ') | title }}
+                    </span>
+                  </td>
+                  <td style="color: var(--muted); font-size: 11px;">{{ r.created_at[:10] }}</td>
+                  <td>
+                    <div class="row-actions">
+                      <!-- Status updater -->
+                      <form action="/repairs/update/{{ r.id }}" method="POST" style="display:flex; gap:4px;">
+                        <select name="new_status" class="action-select">
+                          <option value="pending"     {% if r.status == 'pending'     %}selected{% endif %}>Pending</option>
+                          <option value="in-progress" {% if r.status == 'in-progress' %}selected{% endif %}>In Progress</option>
+                          <option value="completed"   {% if r.status == 'completed'   %}selected{% endif %}>Completed</option>
+                          <option value="cancelled"   {% if r.status == 'cancelled'   %}selected{% endif %}>Cancelled</option>
+                        </select>
+                        <button type="submit" class="update-btn">Save</button>
+                      </form>
+                      <!-- Delete -->
+                      <form action="/repairs/delete/{{ r.id }}" method="POST">
+                        <button type="submit" class="delete-btn"
+                          onclick="return confirm('Delete repair job #{{ r.id }}?')">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="9" style="text-align: center; padding: 30px; color: var(--muted);">
+                    No repair jobs logged yet. Add one using the form on the left.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </section>
+</div>
+</body>
+</html>

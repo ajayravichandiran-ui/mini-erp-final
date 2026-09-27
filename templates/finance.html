@@ -1,83 +1,254 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>ERP - Finance Dashboard</title>
-    <!-- Import Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f4f7f6; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #28a745; color: white; }
-        .nav-link { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #007bff; font-weight: bold; }
-        .chart-container { width: 100%; max-width: 600px; margin: 30px auto; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJ ERP — Finance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --navy: #172236; --muted: #6f7d90; --line: #e7ebf1; --blue: #3163e3; --bg: #f6f8fb; --green: #16855b; --red: #d64a4a; --amber: #d68b2f; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--navy); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; } button { cursor: pointer; } h1, h2, h3 { margin: 0; } a { color: inherit; text-decoration: none; }
+    
+    .erp-shell { display: flex; min-height: 100vh; }
+    
+    /* Sidebar */
+    .sidebar { width: 240px; flex: 0 0 240px; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 24px 14px 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 32px; font-size: 18px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--blue); color: #fff; font-weight: 800; font-size: 14px; }
+    .nav-label { margin: 0 12px 10px; color: #a0aaba; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; margin-bottom: 24px; }
+    .nav a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 6px; color: #738094; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; }
+    .nav a:hover, .nav a.active { color: var(--blue); background: #eef3ff; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; }
+    .profile { display: flex; align-items: center; gap: 9px; padding: 12px 8px 0; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #dfe8ff; color: #315abf; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+    .profile-info strong { display: block; font-size: 12px; } .profile-info span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+
+    /* Main & Topbar */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; height: 72px; padding: 0 36px; background: #fff; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+    .topbar-left { display: flex; align-items: center; gap: 12px; } .topbar h1 { font-size: 18px; letter-spacing: -.03em; } .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .content { flex: 1; padding: 28px 36px 48px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+    /* Metrics */
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+    .metric { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
+    .metric-header { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .metric-value { margin-top: 10px; font-size: 24px; font-weight: 750; letter-spacing: -.04em; }
+    .metric-change { margin-top: 4px; font-size: 11px; font-weight: 650; color: var(--muted); }
+    .metric-value.green { color: var(--green); } .metric-value.red { color: var(--red); } .metric-value.blue { color: var(--blue); }
+
+    /* Dashboard Grid */
+    .dashboard-grid { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(0, 1.5fr); gap: 18px; align-items: start; margin-bottom: 18px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 20px 22px 14px; } .card-title { font-size: 13px; font-weight: 750; } .card-subtitle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+
+    /* Forms */
+    .form-body { padding: 0 22px 22px; }
+    .field { display: grid; gap: 6px; margin-bottom: 14px; } .field label { color: #516075; font-size: 11px; font-weight: 700; }
+    .field input, .field select { width: 100%; padding: 9px 10px; border: 1px solid #dce2ea; border-radius: 5px; outline: none; background: #fff; font-size: 12px; }
+    .field input:focus, .field select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #eaf0ff; }
+    .primary-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 18px; padding: 10px 14px; border: 0; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 750; }
+    
+    /* Table */
+    .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; min-width: 500px; }
+    thead tr { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    th { padding: 9px 22px; color: #8995a5; font-size: 10px; font-weight: 750; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+    td { padding: 14px 22px; border-bottom: 1px solid #eef1f5; color: #3b495c; font-size: 12px; }
+    
+    .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 750; }
+    .badge.credit { background: #e6f5ef; color: #16855b; }
+    .badge.debit { background: #eef3ff; color: #3163e3; }
+    .badge.cancellation { background: #fdf0f0; color: var(--red); }
+    
+    .chart-wrap { padding: 0 30px 30px; }
+    .flash { background: #e6f5ef; color: #16855b; border: 1px solid #b7dfc9; padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; font-weight: 600; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <a href="/" class="nav-link">⬅ Back to Inventory</a>
-        <h2>💰 Executive Finance Dashboard</h2>
-        
-        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-            <div style="flex: 1; background: #cce5ff; padding: 20px; border-radius: 5px; text-align: center;">
-                <h3>Gross Revenue</h3>
-                <h2>${{ "%.2f"|format(total_revenue) }}</h2>
-            </div>
-            <div style="flex: 1; background: #f8d7da; padding: 20px; border-radius: 5px; text-align: center;">
-                <h3>Total Expenses</h3>
-                <h2>${{ "%.2f"|format(total_expenses) }}</h2>
-            </div>
-            <div style="flex: 1; background: {{ '#d4edda' if net_profit >= 0 else '#f8d7da' }}; padding: 20px; border-radius: 5px; text-align: center;">
-                <h3>Net Profit</h3>
-                <h2>${{ "%.2f"|format(net_profit) }}</h2>
-            </div>
-        </div>
+<div class="erp-shell">
 
-        <!-- The Chart Canvas -->
-        <div class="chart-container">
-            <canvas id="revenueChart"></canvas>
-        </div>
-
-        <h3>Sales Ledger</h3>
-        <table>
-            <tr><th>Product Sold</th><th>Qty</th><th>Unit Price</th><th>Total Sale</th></tr>
-            {% for sale in sales %}
-            <tr>
-                <td>{{ sale[0] }}</td>
-                <td>{{ sale[1] }}</td>
-                <td>${{ "%.2f"|format(sale[2]) }}</td>
-                <td><b>${{ "%.2f"|format(sale[3]) }}</b></td>
-            </tr>
-            {% endfor %}
-        </table>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">A</span> AJ ERP</div>
+    <p class="nav-label">Workspace</p>
+    <nav class="nav">
+      <a href="/"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg> Inventory</a>
+      <a href="/orders"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg> Orders</a>
+      <a href="/suppliers"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Suppliers</a>
+      <a href="/repairs"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Repairs</a>
+      <a href="/p2p"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Procure to Pay</a>
+      <a href="/finance" class="active"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg> Finance</a>
+    </nav>
+    <p class="nav-label">Administration</p>
+    <nav class="nav">
+      <a href="/settings"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</a>
+      <a href="/logout"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg> Logout</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="profile">
+        <span class="avatar">AJ</span>
+        <div class="profile-info"><strong>Ajay R</strong><span>System Administrator</span></div>
+      </div>
     </div>
+  </aside>
 
-    <!-- Script to render the chart -->
-    <script>
-        // Safely inject Python lists into JavaScript using Jinja's tojson filter
-        const labels = {{ chart_labels | tojson }};
-        const data = {{ chart_data | tojson }};
+  <!-- Main -->
+  <section class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div><h1>Executive Finance Dashboard</h1><p>Track balance sheet, revenue, and process billing memos.</p></div>
+      </div>
+    </header>
 
-        const ctx = document.getElementById('revenueChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Total Revenue by Product ($)',
-                    data: data,
-                    // This applies a repeating array of colors to the bars
-                    backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2'],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
-        });
-    </script>
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}{% endif %}
+      {% endwith %}
+
+      <!-- Metrics -->
+      <section class="metrics">
+        <div class="metric">
+          <div class="metric-header"><span>Total Assets</span></div>
+          <div class="metric-value green">${{ "%.2f"|format(assets|default(0)) }}</div>
+          <div class="metric-change">Cash, AR, and Inventory</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Total Liabilities</span></div>
+          <div class="metric-value red">${{ "%.2f"|format(liabilities|default(0)) }}</div>
+          <div class="metric-change">Accounts Payable (AP)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-header"><span>Owner's Equity</span></div>
+          <div class="metric-value blue">${{ "%.2f"|format(equity|default(0)) }}</div>
+          <div class="metric-change">Assets minus Liabilities</div>
+        </div>
+      </section>
+
+      <!-- Dashboard Grid -->
+      <section class="dashboard-grid">
+        
+        <!-- Form -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Issue Billing Memo</h2>
+            <p class="card-subtitle">Process adjustments and refunds</p>
+          </div>
+          <form class="form-body" action="/finance/add_memo" method="POST">
+            <div class="field">
+              <label>Memo Type</label>
+              <select name="memo_type" required>
+                <option value="Credit">Credit Memo (Refund/Return)</option>
+                <option value="Debit">Debit Memo (Additional Charge)</option>
+                <option value="Cancellation">Cancellation Memo (Void)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Customer / Client</label>
+              <input type="text" name="customer" placeholder="e.g. Tech Corp" required>
+            </div>
+            <div class="field">
+              <label>Amount ($)</label>
+              <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="field">
+              <label>Reason</label>
+              <input type="text" name="reason" placeholder="e.g. Returned damaged item" required>
+            </div>
+            <button type="submit" class="primary-btn">Generate Memo</button>
+          </form>
+        </article>
+
+        <!-- Table -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Memo Ledger</h2>
+            <p class="card-subtitle">Recent billing adjustments</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Type</th>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for memo in memos|default([]) %}
+                <tr>
+                  <td style="font-weight:700; color: var(--muted);">M-{{ memo.id }}</td>
+                  <td>
+                    <span class="badge {{ memo.memo_type | lower }}">{{ memo.memo_type }}</span>
+                  </td>
+                  <td>{{ memo.customer }}</td>
+                  <td style="font-weight:700;">${{ "%.2f"|format(memo.amount) }}</td>
+                  <td style="color: var(--muted); font-size: 11px;">{{ memo.reason }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="5" style="text-align:center; color: var(--muted); padding: 20px;">No memos issued yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- Chart Section (Optional addition to keep the old chart feature) -->
+      <article class="card">
+        <div class="card-header">
+          <h2 class="card-title">Revenue by Product</h2>
+          <p class="card-subtitle">Sales breakdown from orders</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="revenueChart" height="80"></canvas>
+        </div>
+      </article>
+
+    </main>
+  </section>
+</div>
+
+<script>
+  (function () {
+    // Applying default([]) FIRST prevents the JSON serializable crash
+    const labels = {{ chart_labels | default([]) | tojson | safe }};
+    const data   = {{ chart_data | default([]) | tojson | safe }};
+
+    if(labels.length > 0) {
+      const ctx = document.getElementById('revenueChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Revenue ($)',
+            data: data,
+            backgroundColor: 'rgba(49, 99, 227, 0.72)',
+            borderColor: '#3163e3',
+            borderWidth: 1.5,
+            borderRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#8995a5', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { color: '#8995a5', font: { size: 10 } }, beginAtZero: true }
+          }
+        }
+      });
+    }
+  })();
+</script>
 </body>
 </html>

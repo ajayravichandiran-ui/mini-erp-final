@@ -5,9 +5,6 @@ import pandas as pd
 import pickle
 from sklearn.linear_model import LinearRegression
 
-# 1. Extract
-conn = sqlite3.connect('database.db')
-
 model = LinearRegression()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +24,7 @@ app = Flask(__name__)
 app.secret_key = "super_secret_erp_key" 
 
 # --- MASTER DATABASE INITIALIZATION ---
-conn = sqlite3.connect('erp_database.db')
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 
@@ -97,6 +94,161 @@ cursor.execute('''
     )
 ''')
 
+# 6. Repairs
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS repairs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name TEXT NOT NULL,
+        client_contact TEXT NOT NULL,
+        device TEXT NOT NULL,
+        issue TEXT NOT NULL,
+        estimated_cost REAL,
+        priority TEXT DEFAULT 'medium',
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
+# 7. P2P — Purchase Requisitions
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS purchase_requisitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        required_date TEXT,
+        department TEXT,
+        reason TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
+# 8. P2P — RFQ
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS rfqs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pr_id INTEGER NOT NULL,
+        supplier_id INTEGER NOT NULL,
+        quoted_price REAL,
+        delivery_days INTEGER,
+        notes TEXT,
+        status TEXT DEFAULT 'sent',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pr_id) REFERENCES purchase_requisitions(id),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+    )
+''')
+
+# 9. P2P — Purchase Orders
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rfq_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_price REAL NOT NULL,
+        total_value REAL NOT NULL,
+        delivery_date TEXT,
+        status TEXT DEFAULT 'ordered',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (rfq_id) REFERENCES rfqs(id)
+    )
+''')
+
+# 10. P2P — GRN
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS grns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_id INTEGER NOT NULL,
+        received_qty INTEGER NOT NULL,
+        received_date TEXT,
+        condition TEXT DEFAULT 'good',
+        product_name TEXT,
+        remarks TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (po_id) REFERENCES purchase_orders(id)
+    )
+''')
+
+# 11. P2P — Vendor Invoices
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS vendor_invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_id INTEGER NOT NULL,
+        invoice_number TEXT NOT NULL,
+        amount REAL NOT NULL,
+        invoice_date TEXT,
+        due_date TEXT,
+        notes TEXT,
+        status TEXT DEFAULT 'invoiced',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (po_id) REFERENCES purchase_orders(id)
+    )
+''')
+
+# 12. Finance — General Ledger (GL)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS general_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_name TEXT NOT NULL,
+        account_type TEXT NOT NULL, -- Asset, Liability, Equity, Revenue, Expense
+        balance REAL DEFAULT 0.0
+    )
+''')
+
+# 13. Finance — Sub-Ledgers (AR / AP)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS sub_ledgers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_name TEXT NOT NULL, -- Customer or Supplier Name
+        amount REAL NOT NULL,
+        ledger_type TEXT NOT NULL, -- 'AR' (Receivable) or 'AP' (Payable)
+        status TEXT DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
+# 14. Billing — Memos
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS billing_memos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        memo_type TEXT NOT NULL, -- 'Credit', 'Debit', or 'Cancellation'
+        customer TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
+# 14. O2C — Outbound Deliveries
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS outbound_deliveries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        delivery_date TEXT,
+        carrier TEXT,
+        tracking_number TEXT,
+        status TEXT DEFAULT 'dispatched',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+    )
+''')
+
+# 15. O2C — Customer Billing (Accounts Receivable)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS customer_invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        invoice_number TEXT NOT NULL,
+        amount REAL NOT NULL,
+        due_date TEXT,
+        status TEXT DEFAULT 'unpaid',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+    )
+''')
+
 # Auto-inject default users if they don't exist
 cursor.execute("SELECT COUNT(*) FROM employees")
 if cursor.fetchone()[0] == 0:
@@ -121,7 +273,7 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        conn = sqlite3.connect('erp_database.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT role FROM employees WHERE username = ? AND password = ?", (username, password))
         user = cursor.fetchone()
@@ -201,7 +353,7 @@ def add():
     price = float(request.form['price'])
     stock = int(request.form['stock'])
     
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO products (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
     conn.commit()
@@ -220,7 +372,7 @@ def delete(id):
         flash("Error: Security Alert. Only Managers can delete products.", "error")
         return redirect('/')
         
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM products WHERE id = ?", (id,))
     conn.commit()
@@ -235,7 +387,7 @@ def edit(id):
         flash("Error: Security Alert. Only Managers can edit products.", "error")
         return redirect('/')
         
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     if request.method == 'POST':
@@ -261,7 +413,7 @@ def export():
     if 'username' not in session:
         return redirect('/login')
         
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, price, stock FROM products")
     items = cursor.fetchall()
@@ -287,58 +439,90 @@ def finance():
         flash("Security Alert: Access Denied. Only Managers can view financial data.", "error")
         return redirect('/')
         
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # 1. Detailed Sales Ledger — join order_items → products to get price
-    cursor.execute('''
-        SELECT p.name, oi.quantity, p.price, (oi.quantity * p.price) AS revenue
-        FROM order_items oi
-        JOIN products p ON oi.product_name = p.name
-    ''')
-    sales = cursor.fetchall()
+    # 1. Revenue & Expenses
+    cursor.execute("SELECT SUM(total) FROM orders WHERE status != 'cancelled'")
+    total_revenue = cursor.fetchone()[0] or 0.0
 
-    # 2. Aggregated Data for the Chart (Groups revenue by product)
+    cursor.execute("SELECT SUM(total_cost) FROM purchases")
+    total_expenses = cursor.fetchone()[0] or 0.0
+    
+    # Subtract Credit Memos (Refunds) from Revenue
+    cursor.execute("SELECT SUM(amount) FROM billing_memos WHERE memo_type = 'Credit'")
+    total_refunds = cursor.fetchone()[0] or 0.0
+    
+    # Define net_revenue here so it doesn't throw a NameError!
+    net_revenue = total_revenue - total_refunds
+    net_profit = net_revenue - total_expenses
+
+    # 2. Balance Sheet Calculations (Assets = Liabilities + Equity)
+    cursor.execute("SELECT SUM(stock * price) FROM products")
+    inventory_value = cursor.fetchone()[0] or 0.0
+    total_assets = net_profit + inventory_value
+    
+    cursor.execute("SELECT SUM(amount) FROM vendor_invoices WHERE status != 'paid'")
+    total_liabilities = cursor.fetchone()[0] or 0.0
+    
+    total_equity = total_assets - total_liabilities
+
+    # 3. Fetch Billing Memos for the UI
+    cursor.execute("SELECT * FROM billing_memos ORDER BY id DESC")
+    memos = [dict(row) for row in cursor.fetchall()]
+    
+    # 4. Fetch Sales Ledger for Chart
     cursor.execute('''
-        SELECT p.name, SUM(oi.quantity * p.price)
+        SELECT p.name, SUM(oi.quantity * p.price) as revenue
         FROM order_items oi
         JOIN products p ON oi.product_name = p.name
         GROUP BY p.name
     ''')
-    chart_aggregation = cursor.fetchall()
+    chart_data = cursor.fetchall()
+    labels = [row['name'] for row in chart_data]
+    data = [row['revenue'] for row in chart_data]
 
-    # Prepare Data for Chart.js
-    chart_labels = []
-    chart_data = []
-    for row in chart_aggregation:
-        chart_labels.append(row[0])
-        chart_data.append(row[1])
-
-    # 3. Calculate Grand Totals
-    cursor.execute('''
-        SELECT SUM(oi.quantity * p.price)
-        FROM order_items oi
-        JOIN products p ON oi.product_name = p.name
-    ''')
-    total_revenue = cursor.fetchone()[0] or 0.0
-
-    cursor.execute('''SELECT SUM(total_cost) FROM purchases''')
-    total_expenses = cursor.fetchone()[0] or 0.0
-    
-    net_profit = total_revenue - total_expenses
-    
     conn.close()
     
-    return render_template('finance.html', sales=sales, total_revenue=total_revenue, 
-                           total_expenses=total_expenses, net_profit=net_profit, 
-                           chart_labels=chart_labels, chart_data=chart_data)
+    return render_template('finance.html', 
+                           total_revenue=net_revenue, total_expenses=total_expenses, 
+                           net_profit=net_profit, assets=total_assets, 
+                           liabilities=total_liabilities, equity=total_equity,
+                           inventory_value=inventory_value, memos=memos,
+                           chart_labels=labels, chart_data=data)
+
+@app.route('/finance/add_memo', methods=['POST'])
+def finance_add_memo():
+    if 'username' not in session: 
+        return redirect('/login')
+    
+    memo_type = request.form['memo_type']
+    customer = request.form['customer'] # Capturing customer from HTML
+    amount = float(request.form['amount'])
+    reason = request.form['reason']
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Insert using the customer name
+    cursor.execute(
+        "INSERT INTO billing_memos (memo_type, customer, amount, reason) VALUES (?, ?, ?, ?)",
+        (memo_type, customer, amount, reason)
+    )
+    conn.commit()
+    conn.close()
+    
+    flash(f"Success: {memo_type} Memo for ${amount} generated.", "success")
+    return redirect(url_for('finance'))
+
 @app.route('/restock', methods=['POST'])
 def restock():
     product_id = int(request.form['product_id'])
     restock_qty = int(request.form['quantity'])
     cost = float(request.form['cost']) # New: Get the cost of the shipment
     
-    conn = sqlite3.connect('erp_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     cursor.execute("SELECT name, stock FROM products WHERE id = ?", (product_id,))
@@ -487,38 +671,117 @@ def settings():
     return render_template('settings.html')
 
 # 1. Load the Orders Page & Handle Filtering
+# ══════════════════════════════════════════════════════════════
+# O2C MODULE — Order to Cash
+# ══════════════════════════════════════════════════════════════
+
 @app.route('/orders')
 def orders():
-    status_filter = request.args.get('status', '')
+    if 'username' not in session:
+        return redirect('/login')
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # 1. Fetch Sales Orders (with items concatenated)
+    cursor.execute('''
+        SELECT o.id, o.customer, o.total, o.status, o.created_at,
+        GROUP_CONCAT(oi.product_name || ' (x' || oi.quantity || ')', ', ') AS item_list
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        GROUP BY o.id
+        ORDER BY o.id DESC
+    ''')
+    sales_orders = [dict(row) for row in cursor.fetchall()]
+
+    # 2. Fetch Outbound Deliveries
+    cursor.execute("SELECT * FROM outbound_deliveries ORDER BY id DESC")
+    deliveries = [dict(row) for row in cursor.fetchall()]
+
+    # 3. Fetch Customer Invoices (AR)
+    cursor.execute("SELECT * FROM customer_invoices ORDER BY id DESC")
+    invoices = [dict(row) for row in cursor.fetchall()]
+
+    # 4. Fetch Products for the SO creation form
+    cursor.execute("SELECT name, stock FROM products")
+    available_products = cursor.fetchall()
+
+    conn.close()
+    return render_template('orders.html', 
+                           sales_orders=sales_orders, 
+                           deliveries=deliveries, 
+                           invoices=invoices, 
+                           available_products=available_products)
+
+@app.route('/o2c/delivery/add', methods=['POST'])
+def o2c_delivery_add():
+    if 'username' not in session: return redirect('/login')
+    
+    order_id = request.form['order_id']
+    delivery_date = request.form['delivery_date']
+    carrier = request.form.get('carrier', 'In-House')
+    tracking = request.form.get('tracking_number', '')
     
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
     
-    # The proper relational JOIN query to stitch the parent and child tables together
-    query = '''
-        SELECT o.id, o.customer, o.total, o.status, o.created_at,
-               GROUP_CONCAT(oi.quantity || 'x ' || oi.product_name, ', ') as items
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-    '''
+    # Log the delivery
+    cursor.execute(
+        "INSERT INTO outbound_deliveries (order_id, delivery_date, carrier, tracking_number) VALUES (?, ?, ?, ?)",
+        (order_id, delivery_date, carrier, tracking)
+    )
     
-    if status_filter:
-        query += " WHERE o.status = ? GROUP BY o.id"
-        cursor.execute(query, (status_filter,))
-    else:
-        query += " GROUP BY o.id"
-        cursor.execute(query)
+    # CRITICAL: Deduct inventory stock here during fulfillment!
+    cursor.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (order_id,))
+    items = cursor.fetchall()
+    for item in items:
+        cursor.execute("UPDATE products SET stock = stock - ? WHERE name = ?", (item[1], item[0]))
         
-    orders_data = [dict(row) for row in cursor.fetchall()]
+    # Update SO status
+    cursor.execute("UPDATE orders SET status = 'shipped' WHERE id = ?", (order_id,))
     
-    # Fetch active products for the dropdown
-    cursor.execute("SELECT name, stock FROM products")
-    available_products = [dict(row) for row in cursor.fetchall()]
+    conn.commit()
+    conn.close()
+    flash("Delivery dispatched and inventory stock deducted.", "success")
+    return redirect(url_for('orders') + '#delivery')
+
+@app.route('/o2c/invoice/add', methods=['POST'])
+def o2c_invoice_add():
+    if 'username' not in session: return redirect('/login')
     
+    order_id = request.form['order_id']
+    invoice_num = request.form['invoice_number']
+    amount = float(request.form['amount'])
+    due_date = request.form.get('due_date', '')
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        "INSERT INTO customer_invoices (order_id, invoice_number, amount, due_date) VALUES (?, ?, ?, ?)",
+        (order_id, invoice_num, amount, due_date)
+    )
+    cursor.execute("UPDATE orders SET status = 'invoiced' WHERE id = ?", (order_id,))
+    
+    conn.commit()
+    conn.close()
+    flash(f"AR Invoice {invoice_num} generated.", "success")
+    return redirect(url_for('orders') + '#invoice')
+
+@app.route('/o2c/invoice/pay/<int:id>', methods=['POST'])
+def o2c_invoice_pay(id):
+    if 'username' not in session: return redirect('/login')
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE customer_invoices SET status = 'paid' WHERE id = ?", (id,))
+    conn.commit()
     conn.close()
     
-    return render_template('orders.html', orders=orders_data, available_products=available_products)
+    flash("Payment received successfully.", "success")
+    return redirect(url_for('orders') + '#invoice')
+
 # 2. Update Order Status
 @app.route('/update_order/<int:order_id>', methods=['POST'])
 def update_order(order_id):
@@ -565,13 +828,12 @@ def seed_orders():
 @app.route('/add_order', methods=['POST'])
 def add_order():
     customer = request.form['customer']
-    product_name = request.form['product_name']  # Now correctly matches the HTML dropdown
+    product_name = request.form['product_name']  
     quantity = int(request.form['quantity'])
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Look up the product's price to calculate the order total
     cursor.execute("SELECT price FROM products WHERE name = ?", (product_name,))
     product = cursor.fetchone()
     
@@ -579,7 +841,7 @@ def add_order():
         unit_price = product[0]
         total = unit_price * quantity
         
-        # Step A: Insert the parent transaction
+        # Step A: Insert the parent Sales Order transaction
         cursor.execute("INSERT INTO orders (customer, total, status) VALUES (?, ?, 'pending')", 
                        (customer, total))
         order_id = cursor.lastrowid 
@@ -588,9 +850,9 @@ def add_order():
         cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, ?, ?)",
                        (order_id, product_name, quantity))
                        
-        # Step C: Automatically deduct the purchased quantity from inventory
-        cursor.execute("UPDATE products SET stock = stock - ? WHERE name = ?", 
-                       (quantity, product_name))
+        # NOTE: Stock deduction has been removed from here. 
+        # It will now occur during the Outbound Delivery step!
+        
         conn.commit()
         
     conn.close()
@@ -644,6 +906,295 @@ def predict_demand(price):
         "price": price,
         "predicted_demand": round(float(predicted_units), 2)
     }
+
+# ══════════════════════════════════════════════════════════════
+# REPAIRS MODULE
+# ══════════════════════════════════════════════════════════════
+
+@app.route('/repairs')
+def repairs():
+    if 'username' not in session:
+        return redirect('/login')
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM repairs ORDER BY id DESC")
+    repairs_data = [dict(row) for row in cur.fetchall()]
+    conn.close()
+
+    return render_template('repairs.html', repairs=repairs_data)
+
+@app.route('/repairs/add', methods=['POST'])
+def repairs_add():
+    if 'username' not in session:
+        return redirect('/login')
+
+    client_name = request.form['client_name']
+    client_contact = request.form['client_contact']
+    device = request.form['device']
+    issue = request.form['issue']
+    estimated_cost_raw = request.form.get('estimated_cost')
+    priority = request.form.get('priority', 'medium')
+
+    estimated_cost = float(estimated_cost_raw) if estimated_cost_raw not in (None, '') else None
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO repairs (client_name, client_contact, device, issue, estimated_cost, priority) VALUES (?, ?, ?, ?, ?, ?)",
+        (client_name, client_contact, device, issue, estimated_cost, priority)
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Repair job created successfully.", "success")
+    return redirect(url_for('repairs'))
+
+@app.route('/repairs/update/<int:id>', methods=['POST'])
+def repairs_update(id):
+    if 'username' not in session:
+        return redirect('/login')
+
+    new_status = request.form['new_status']
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("UPDATE repairs SET status = ? WHERE id = ?", (new_status, id))
+    conn.commit()
+    conn.close()
+
+    flash(f"Repair job #{id} updated.", "success")
+    return redirect(url_for('repairs'))
+
+@app.route('/repairs/delete/<int:id>', methods=['POST'])
+def repairs_delete(id):
+    if 'username' not in session:
+        return redirect('/login')
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM repairs WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+
+    flash(f"Repair job #{id} deleted.", "success")
+    return redirect(url_for('repairs'))
+
+# ══════════════════════════════════════════════════════════════
+# P2P MODULE — Procure to Pay
+# ══════════════════════════════════════════════════════════════
+
+def p2p_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/p2p')
+def p2p():
+    if 'username' not in session:
+        return redirect('/login')
+    conn = p2p_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM purchase_requisitions ORDER BY id DESC")
+    prs = [dict(r) for r in cur.fetchall()]
+    cur.execute("""
+        SELECT r.*, s.name as supplier_name
+        FROM rfqs r LEFT JOIN suppliers s ON r.supplier_id = s.id
+        ORDER BY r.id DESC
+    """)
+    rfqs = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT * FROM purchase_orders ORDER BY id DESC")
+    pos = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT * FROM grns ORDER BY id DESC")
+    grns = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT * FROM vendor_invoices ORDER BY id DESC")
+    invoices = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT id, name, contact FROM suppliers ORDER BY name")
+    suppliers = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT name, stock FROM products ORDER BY name")
+    products = cur.fetchall()
+    conn.close()
+    return render_template('p2p.html',
+        prs=prs, rfqs=rfqs, pos=pos, grns=grns,
+        invoices=invoices, suppliers=suppliers, products=products)
+
+# ── PR routes ──────────────────────────────────────────────────
+@app.route('/p2p/pr/add', methods=['POST'])
+def p2p_pr_add():
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO purchase_requisitions (item_name, quantity, required_date, department, reason) VALUES (?,?,?,?,?)",
+        (request.form['item_name'], int(request.form['quantity']),
+         request.form['required_date'], request.form['department'], request.form.get('reason',''))
+    )
+    conn.commit(); conn.close()
+    flash(f"PR raised for {request.form['item_name']}.", "success")
+    return redirect(url_for('p2p') + '#pr')
+
+@app.route('/p2p/pr/update/<int:id>', methods=['POST'])
+def p2p_pr_update(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("UPDATE purchase_requisitions SET status=? WHERE id=?", (request.form['new_status'], id))
+    conn.commit(); conn.close()
+    flash(f"PR-{id} updated.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/pr/delete/<int:id>', methods=['POST'])
+def p2p_pr_delete(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM purchase_requisitions WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash(f"PR-{id} deleted.", "success")
+    return redirect(url_for('p2p'))
+
+# ── RFQ routes ─────────────────────────────────────────────────
+@app.route('/p2p/rfq/add', methods=['POST'])
+def p2p_rfq_add():
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    qp = request.form.get('quoted_price') or None
+    dd = request.form.get('delivery_days') or None
+    cur.execute(
+        "INSERT INTO rfqs (pr_id, supplier_id, quoted_price, delivery_days, notes) VALUES (?,?,?,?,?)",
+        (int(request.form['pr_id']), int(request.form['supplier_id']),
+         float(qp) if qp else None, int(dd) if dd else None, request.form.get('notes',''))
+    )
+    conn.commit(); conn.close()
+    flash("RFQ sent to supplier.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/rfq/update/<int:id>', methods=['POST'])
+def p2p_rfq_update(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("UPDATE rfqs SET status=? WHERE id=?", (request.form['new_status'], id))
+    conn.commit(); conn.close()
+    flash(f"RFQ-{id} updated.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/rfq/delete/<int:id>', methods=['POST'])
+def p2p_rfq_delete(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM rfqs WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash(f"RFQ-{id} deleted.", "success")
+    return redirect(url_for('p2p'))
+
+# ── PO routes ──────────────────────────────────────────────────
+@app.route('/p2p/po/add', methods=['POST'])
+def p2p_po_add():
+    if 'username' not in session: return redirect('/login')
+    qty   = int(request.form['quantity'])
+    price = float(request.form['unit_price'])
+    total = qty * price
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO purchase_orders (rfq_id, item_name, quantity, unit_price, total_value, delivery_date) VALUES (?,?,?,?,?,?)",
+        (int(request.form['rfq_id']), request.form['item_name'], qty, price, total, request.form['delivery_date'])
+    )
+    conn.commit(); conn.close()
+    flash(f"PO created — Total ₹{total:,.2f}.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/po/update/<int:id>', methods=['POST'])
+def p2p_po_update(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("UPDATE purchase_orders SET status=? WHERE id=?", (request.form['new_status'], id))
+    conn.commit(); conn.close()
+    flash(f"PO-{id} updated.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/po/delete/<int:id>', methods=['POST'])
+def p2p_po_delete(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM purchase_orders WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash(f"PO-{id} deleted.", "success")
+    return redirect(url_for('p2p'))
+
+# ── GRN routes ─────────────────────────────────────────────────
+@app.route('/p2p/grn/add', methods=['POST'])
+def p2p_grn_add():
+    if 'username' not in session: return redirect('/login')
+    product = request.form.get('product_name') or None
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO grns (po_id, received_qty, received_date, condition, product_name, remarks) VALUES (?,?,?,?,?,?)",
+        (int(request.form['po_id']), int(request.form['received_qty']),
+         request.form['received_date'], request.form['condition'],
+         product, request.form.get('remarks',''))
+    )
+    # Auto-update PO status to received
+    cur.execute("UPDATE purchase_orders SET status='received' WHERE id=?", (int(request.form['po_id']),))
+    # Auto-increase inventory stock if product linked
+    if product:
+        cur.execute("UPDATE products SET stock = stock + ? WHERE name = ?",
+                    (int(request.form['received_qty']), product))
+    conn.commit(); conn.close()
+    msg = f"GRN recorded."
+    if product:
+        msg += f" Inventory updated for '{product}'."
+    flash(msg, "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/grn/update/<int:id>', methods=['POST'])
+def p2p_grn_update(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("UPDATE grns SET status=? WHERE id=?", (request.form['new_status'], id))
+    conn.commit(); conn.close()
+    flash(f"GRN-{id} updated.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/grn/delete/<int:id>', methods=['POST'])
+def p2p_grn_delete(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM grns WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash(f"GRN-{id} deleted.", "success")
+    return redirect(url_for('p2p'))
+
+# ── Invoice routes ─────────────────────────────────────────────
+@app.route('/p2p/invoice/add', methods=['POST'])
+def p2p_invoice_add():
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO vendor_invoices (po_id, invoice_number, amount, invoice_date, due_date, notes) VALUES (?,?,?,?,?,?)",
+        (int(request.form['po_id']), request.form['invoice_number'],
+         float(request.form['amount']), request.form['invoice_date'],
+         request.form.get('due_date') or None, request.form.get('notes',''))
+    )
+    conn.commit(); conn.close()
+    flash(f"Invoice {request.form['invoice_number']} recorded.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/invoice/update/<int:id>', methods=['POST'])
+def p2p_invoice_update(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("UPDATE vendor_invoices SET status=? WHERE id=?", (request.form['new_status'], id))
+    conn.commit(); conn.close()
+    flash(f"Invoice #{id} marked as {request.form['new_status']}.", "success")
+    return redirect(url_for('p2p'))
+
+@app.route('/p2p/invoice/delete/<int:id>', methods=['POST'])
+def p2p_invoice_delete(id):
+    if 'username' not in session: return redirect('/login')
+    conn = p2p_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM vendor_invoices WHERE id=?", (id,))
+    conn.commit(); conn.close()
+    flash(f"Invoice #{id} deleted.", "success")
+    return redirect(url_for('p2p'))
+
+# ══════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
     app.run(debug=True)
