@@ -5,6 +5,22 @@ import pandas as pd
 import pickle
 from sklearn.linear_model import LinearRegression
 
+import webview
+import threading
+import sys
+
+from dotenv import load_dotenv
+
+# Load variables from the .env file
+load_dotenv()
+
+# Configure your API key (You will need to paste your actual key here)
+from groq import Groq
+import json
+
+# Replace with your actual Groq API key
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
 model = LinearRegression()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -249,6 +265,18 @@ cursor.execute('''
     )
 ''')
 
+# 16. O2C — Customer Special Requests (Back-to-Back)
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS customer_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer TEXT NOT NULL,
+        requested_item TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending_sourcing',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
+
 # Auto-inject default users if they don't exist
 cursor.execute("SELECT COUNT(*) FROM employees")
 if cursor.fetchone()[0] == 0:
@@ -297,6 +325,8 @@ def logout():
 
 @app.route('/')
 def index():
+    if 'username' not in session:
+        return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     # Fetch name, stock, AND price from the products table
@@ -707,12 +737,16 @@ def orders():
     cursor.execute("SELECT name, stock FROM products")
     available_products = cursor.fetchall()
 
+    cursor.execute("SELECT * FROM customer_requests ORDER BY id DESC")
+    special_requests = [dict(row) for row in cursor.fetchall()]
+
     conn.close()
     return render_template('orders.html', 
                            sales_orders=sales_orders, 
                            deliveries=deliveries, 
                            invoices=invoices, 
-                           available_products=available_products)
+                           available_products=available_products,
+                           special_requests=special_requests)
 
 @app.route('/o2c/delivery/add', methods=['POST'])
 def o2c_delivery_add():
@@ -1035,11 +1069,13 @@ def p2p_pr_add():
 @app.route('/p2p/pr/update/<int:id>', methods=['POST'])
 def p2p_pr_update(id):
     if 'username' not in session: return redirect('/login')
-    conn = p2p_db(); cur = conn.cursor()
+    conn = p2p_db()
+    cur = conn.cursor()
     cur.execute("UPDATE purchase_requisitions SET status=? WHERE id=?", (request.form['new_status'], id))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     flash(f"PR-{id} updated.", "success")
-    return redirect(url_for('p2p'))
+    return redirect(url_for('p2p')) 
 
 @app.route('/p2p/pr/delete/<int:id>', methods=['POST'])
 def p2p_pr_delete(id):
@@ -1103,10 +1139,41 @@ def p2p_po_add():
 @app.route('/p2p/po/update/<int:id>', methods=['POST'])
 def p2p_po_update(id):
     if 'username' not in session: return redirect('/login')
-    conn = p2p_db(); cur = conn.cursor()
-    cur.execute("UPDATE purchase_orders SET status=? WHERE id=?", (request.form['new_status'], id))
-    conn.commit(); conn.close()
-    flash(f"PO-{id} updated.", "success")
+    
+    new_status = request.form['new_status']
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    
+    # 1. Update the PO status
+    cur.execute("UPDATE purchase_orders SET status=? WHERE id=?", (new_status, id))
+    
+    # 2. Trigger the Smart Inventory injection (CASE INSENSITIVE CHECK)
+    if new_status.lower() == 'received':
+        # Fetch the PO details to know what to add to inventory
+        cur.execute("SELECT item_name, quantity, unit_price FROM purchase_orders WHERE id=?", (id,))
+        po = cur.fetchone()
+        
+        if po:
+            item_name, qty, purchase_cost = po[0], po[1], po[2]
+            
+            # Check if item exists in master inventory
+            cur.execute("SELECT id FROM products WHERE name = ? COLLATE NOCASE", (item_name,))
+            existing_product = cur.fetchone()
+            
+            if existing_product:
+                # PATH A: It exists. Add received qty to existing stock.
+                cur.execute("UPDATE products SET stock = stock + ? WHERE name = ? COLLATE NOCASE", (qty, item_name))
+            else:
+                # PATH B: Brand new item! Create it and apply a 20% markup for Retail Price.
+                retail_price = purchase_cost * 1.20 
+                cur.execute(
+                    "INSERT INTO products (name, stock, price) VALUES (?, ?, ?)", 
+                    (item_name, qty, retail_price)
+                )
+                
+    conn.commit()
+    conn.close()
+    flash(f"PO-{id} updated to {new_status}.", "success")
     return redirect(url_for('p2p'))
 
 @app.route('/p2p/po/delete/<int:id>', methods=['POST'])
@@ -1194,7 +1261,361 @@ def p2p_invoice_delete(id):
     flash(f"Invoice #{id} deleted.", "success")
     return redirect(url_for('p2p'))
 
+@app.route('/o2c/request/add', methods=['POST'])
+def o2c_request_add():
+    if 'username' not in session: return redirect('/login')
+    
+    customer = request.form['customer']
+    requested_item = request.form['requested_item']
+    quantity = int(request.form['quantity'])
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO customer_requests (customer, requested_item, quantity) VALUES (?, ?, ?)",
+        (customer, requested_item, quantity)
+    )
+    conn.commit()
+    conn.close()
+    flash(f"Special request logged for {customer}.", "success")
+    return redirect(url_for('orders') + '#request')
+
+@app.route('/o2c/request/convert', methods=['POST'])
+def o2c_request_convert():
+    if 'username' not in session: return redirect('/login')
+    
+    request_id = request.form['request_id']
+    actual_product = request.form['actual_product']
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 1. Get original request details
+    cursor.execute("SELECT customer, quantity FROM customer_requests WHERE id = ?", (request_id,))
+    req = cursor.fetchone()
+    
+    # 2. Get current inventory price for the sourced item
+    cursor.execute("SELECT price FROM products WHERE name = ?", (actual_product,))
+    prod = cursor.fetchone()
+    
+    if req and prod:
+        customer, quantity = req
+        unit_price = prod[0]
+        total = unit_price * quantity
+        
+        # 3. Create the Sales Order
+        cursor.execute("INSERT INTO orders (customer, total, status) VALUES (?, ?, 'pending')", (customer, total))
+        order_id = cursor.lastrowid
+        cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, ?, ?)", (order_id, actual_product, quantity))
+        
+        # 4. Mark request as converted
+        cursor.execute("UPDATE customer_requests SET status = 'converted' WHERE id = ?", (request_id,))
+        conn.commit()
+        flash("Request successfully converted to a Sales Order!", "success")
+    else:
+        flash("Error finding product or request.", "error")
+        
+    conn.close()
+    return redirect(url_for('orders') + '#so')
+
+@app.route('/order/smart_route', methods=['POST'])
+def smart_route_order():
+    if 'username' not in session: return redirect('/login')
+    
+    customer = request.form['customer']
+    item_name = request.form['item_name'].strip()
+    quantity = int(request.form['quantity'])
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 1. Check if the exact item exists in the master inventory
+    # Using COLLATE NOCASE so "laptop" matches "Laptop"
+    cursor.execute("SELECT price FROM products WHERE name = ? COLLATE NOCASE", (item_name,))
+    product = cursor.fetchone()
+    
+    if product:
+        # PATH A: It exists! Create a standard Sales Order ready for delivery
+        unit_price = product[0]
+        total = unit_price * quantity
+        
+        cursor.execute("INSERT INTO orders (customer, total, status) VALUES (?, ?, 'pending')", (customer, total))
+        order_id = cursor.lastrowid
+        cursor.execute("INSERT INTO order_items (order_id, product_name, quantity) VALUES (?, ?, ?)", (order_id, item_name, quantity))
+        flash(f"Item found! Created Sales Order SO-{order_id} instantly.", "success")
+    else:
+        # PATH B: It does not exist. Route to the Procurement holding area
+        cursor.execute(
+            "INSERT INTO customer_requests (customer, requested_item, quantity) VALUES (?, ?, ?)",
+            (customer, item_name, quantity)
+        )
+        flash(f"'{item_name}' is not in inventory. Routed to Special Requests for purchasing.", "success")
+        
+    conn.commit()
+    conn.close()
+    return redirect(url_for('orders'))
+
+@app.route('/api/copilot', methods=['POST'])
+def copilot():
+    if 'username' not in session: 
+        return jsonify({"reply": "Security Error: You must be logged in."})
+    
+    user_text = request.json.get('prompt')
+    
+    # 1. Added the new audit_invoice instruction here
+    system_prompt = f"""
+    You are AJ ERP Copilot. Convert the user's request into a strict JSON object. Do not include markdown.
+    If they ask to check stock: {{"action": "check_stock", "item_name": "Name"}}
+    If they ask to order a special item: {{"action": "special_request", "item_name": "Name", "quantity": number}}
+    If they ask to add a product: {{"action": "add_product", "item_name": "Name", "price": number, "stock": number}}
+    If they ask to remove the last product: {{"action": "remove_last_product"}}
+    If they ask for recent orders: {{"action": "recent_orders", "limit": number}}
+    If they ask to find or list suppliers: {{"action": "find_suppliers", "search_term": "Name or empty"}}
+    If they ask to audit or match an invoice: {{"action": "audit_invoice", "po_number": number, "invoice_text": "Full text of the invoice"}}
+    If they say a greeting or you don't understand: {{"action": "chat", "message": "Hello! I am your AJ ERP Copilot. How can I help you today?"}}
+    User request: {user_text}
+    """
+    
+    try:
+        response = groq_client.chat.completions.create(
+            messages=[{"role": "system", "content": system_prompt}],
+            model="openai/gpt-oss-20b",
+            temperature=0.1
+        )
+        
+        raw_json = response.choices[0].message.content.replace('```json', '').replace('```', '').strip()
+        command = json.loads(raw_json)
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        action = command.get('action', 'chat')
+        
+        if action == 'chat':
+            reply = command.get('message', 'Hello! How can I help you automate your workflow today?')
+            
+        elif action == 'check_stock':
+            cursor.execute("SELECT stock FROM products WHERE name LIKE ? COLLATE NOCASE", ('%' + command['item_name'] + '%',))
+            result = cursor.fetchone()
+            reply = f"We currently have {result[0]} units of {command['item_name']} in stock." if result else f"Item '{command['item_name']}' not found."
+            
+        elif action == 'special_request':
+            cursor.execute(
+                "INSERT INTO customer_requests (customer, requested_item, quantity) VALUES (?, ?, ?)",
+                (session['username'], command['item_name'], command['quantity'])
+            )
+            conn.commit()
+            reply = f"Successfully logged a special request for {command['quantity']}x {command['item_name']}."
+            
+        elif action == 'add_product':
+            cursor.execute(
+                "INSERT INTO products (name, price, stock) VALUES (?, ?, ?)",
+                (command['item_name'], command['price'], command['stock'])
+            )
+            conn.commit()
+            reply = f"Added {command['stock']} units of '{command['item_name']}' at ₹{command['price']} to master inventory."
+            
+        elif action == 'remove_last_product':
+            cursor.execute("SELECT id, name FROM products ORDER BY id DESC LIMIT 1")
+            last_product = cursor.fetchone()
+            if last_product:
+                cursor.execute("DELETE FROM products WHERE id = ?", (last_product[0],))
+                conn.commit()
+                reply = f"Successfully removed the last added product: '{last_product[1]}'."
+            else:
+                reply = "The inventory is already empty, nothing to remove."
+
+        elif action == 'recent_orders':
+            limit = command.get('limit', 3) 
+            cursor.execute("SELECT id, customer, total, status FROM orders ORDER BY id DESC LIMIT ?", (limit,))
+            orders = cursor.fetchall()
+            if orders:
+                reply = f"Here are your last {limit} orders:<br>"
+                for o in orders:
+                    reply += f"• <b>SO-{o[0]}</b>: {o[1]} - ₹{o[2]:,.2f} ({o[3]})<br>"
+            else:
+                reply = "No recent orders found."
+
+        elif action == 'find_suppliers':
+            search_term = command.get('search_term', '')
+            if search_term:
+                cursor.execute("SELECT name, contact, email FROM suppliers WHERE name LIKE ? COLLATE NOCASE", ('%' + search_term + '%',))
+            else:
+                cursor.execute("SELECT name, contact, email FROM suppliers LIMIT 5")
+                
+            suppliers = cursor.fetchall()
+            if suppliers:
+                reply = "Here are the matching suppliers:<br>"
+                for s in suppliers:
+                    reply += f"• <b>{s[0]}</b> (Contact: {s[1]} | Email: {s[2]})<br>"
+            else:
+                reply = "No suppliers found matching that request."
+
+        # 2. NEW BLOCK: The Invoice Auditor Logic
+        elif action == 'audit_invoice':
+            po_number = command.get('po_number')
+            invoice_text = command.get('invoice_text')
+            
+            # Fetch the expected order details from the database (assuming 'purchase_orders' table exists)
+            try:
+                cursor.execute("SELECT item_name, quantity, expected_price FROM purchase_orders WHERE id = ?", (po_number,))
+                po_data = cursor.fetchone()
+                
+                if not po_data:
+                    reply = f"Purchase Order #{po_number} not found in the database. Cannot complete audit."
+                else:
+                    po_item, po_qty, po_price = po_data
+                    expected_total = po_qty * po_price
+                    
+                    # Ask the AI to compare the invoice text against your database facts
+                    audit_prompt = f"""
+                    Compare this supplier invoice: "{invoice_text}"
+                    Against our internal PO: {po_qty}x {po_item} at ₹{po_price} each (Total expected: ₹{expected_total}).
+                    If it matches perfectly, say: "✅ 3-Way Match Successful. Ready for payment."
+                    If they overcharged or sent the wrong amount, say: "⚠️ Discrepancy Detected:" and explain why.
+                    Keep it short and professional.
+                    """
+                    
+                    audit_response = groq_client.chat.completions.create(
+                        messages=[{"role": "user", "content": audit_prompt}],
+                        model="openai/gpt-oss-20b",
+                        temperature=0.1
+                    )
+                    
+                    reply = audit_response.choices[0].message.content.strip()
+            except sqlite3.OperationalError:
+                # Fallback just in case you haven't created the purchase_orders table in your DB yet!
+                reply = "The 'purchase_orders' table doesn't exist in the database yet. Please set up the P2P tables first."
+                
+        else:
+            reply = "I understood the request, but I don't have the backend logic to perform that action yet."
+            
+        conn.close()
+        return jsonify({"reply": reply})
+        
+    except Exception as e:
+        return jsonify({"reply": f"System Error: {str(e)}"})
+
+@app.route('/api/auto_procure', methods=['POST'])
+def auto_procure():
+    if 'username' not in session or session.get('role') != 'Manager':
+        return jsonify({"status": "error", "message": "Security Alert: Only Managers can run Auto-Procurement."})
+
+    if not demand_model:
+        return jsonify({"status": "error", "message": "Demand model not found. Run train_model.py first!"})
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Check current inventory
+    cursor.execute("SELECT id, name, price, stock FROM products")
+    products = cursor.fetchall()
+    
+    requisitions_created = 0
+    
+    for prod in products:
+        prod_id, name, price, current_stock = prod
+        
+        # Predict how many units will sell 
+        predicted_demand = demand_model.predict([[price]])[0]
+        
+        # If the AI predicts you will sell more than you currently have (plus a 5-unit safety buffer)
+        if predicted_demand > current_stock:
+            qty_needed = int((predicted_demand - current_stock) + 5)
+            
+            if qty_needed > 0:
+                cursor.execute(
+                    """INSERT INTO purchase_requisitions 
+                       (item_name, quantity, required_date, department, reason, status) 
+                       VALUES (?, ?, date('now', '+7 days'), 'AI Auto-Procurement', 'Predicted demand exceeds current stock', 'pending')""",
+                    (name, qty_needed)
+                )
+                requisitions_created += 1
+            
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        "status": "success", 
+        "message": f"Forecasting complete! The AI automatically generated {requisitions_created} Purchase Requisitions for low-stock items."
+    })
+
+@app.route('/api/match_invoice', methods=['POST'])
+def match_invoice():
+    if 'username' not in session: 
+        return jsonify({"status": "error", "reply": "Security Alert: Please log in."})
+        
+    # In a full production app, you would use an OCR library (like Tesseract or Google Vision) 
+    # to extract this text directly from an uploaded PDF.
+    invoice_text = request.json.get('invoice_text') 
+    po_number = request.json.get('po_number')
+    
+    # 1. Fetch the original PO from your database
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Assuming you have a purchase_orders table. Adjust table/column names to match your schema.
+    cursor.execute("SELECT item_name, quantity, expected_price FROM purchase_orders WHERE id = ?", (po_number,))
+    po_data = cursor.fetchone()
+    conn.close()
+    
+    if not po_data:
+        return jsonify({"status": "error", "reply": f"Purchase Order #{po_number} not found in database."})
+        
+    po_item, po_qty, po_price = po_data
+    expected_total = po_qty * po_price
+    
+    # 2. Instruct the AI to act as a financial auditor
+    system_prompt = f"""
+    You are an AI financial auditor for AJ ERP. Extract the billed item, quantity, and total price from the user's invoice text.
+    Compare it against our internal Purchase Order details:
+    - Expected Item: {po_item}
+    - Expected Quantity: {po_qty}
+    - Expected Unit Price: ₹{po_price}
+    - Expected Total: ₹{expected_total}
+    
+    If the invoice matches our expectations exactly, set "match" to true. If they overcharged us or sent the wrong quantity, set "match" to false.
+    Output a strict JSON object: {{"match": boolean, "reason": "Brief explanation of any discrepancies or confirmation of match"}}
+    """
+    
+    try:
+        response = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Supplier Invoice Text: {invoice_text}"}
+            ],
+            model="openai/gpt-oss-20b",
+            temperature=0.1
+        )
+        
+        raw_json = response.choices[0].message.content.replace('```json', '').replace('```', '').strip()
+        audit = json.loads(raw_json)
+        
+        # 3. Return the audit result
+        if audit['match']:
+            return jsonify({"status": "success", "reply": f"✅ 3-Way Match Successful: {audit['reason']} Ready for finance to issue payment."})
+        else:
+            return jsonify({"status": "warning", "reply": f"⚠️ Discrepancy Detected: {audit['reason']} Invoice paused and routed to management."})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "reply": f"Audit Failed: {str(e)}"})
+    
 # ══════════════════════════════════════════════════════════════
 
+# 1. Create a function to run your Flask app
+def start_server():
+    # Turn off debug mode for production security
+    app.run(host='127.0.0.1', port=5000, debug=False)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    # 2. Start the Flask server in a background thread
+    server_thread = threading.Thread(target=start_server)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    # 3. Open the native Windows desktop application window
+    # It points directly to your local Flask server
+    webview.create_window('AJ ERP System', 'http://127.0.0.1:5000', width=1200, height=800)
+    webview.start()
+    
+    # Shut down completely when the user closes the window
+    sys.exit()

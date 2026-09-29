@@ -397,7 +397,9 @@
 
       <!-- ── Dashboard grid ───────────────────────────── -->
       <section class="dashboard-grid">
+        
 
+        <!-- Chart card -->
         <!-- Chart card -->
         <article class="card">
           <div class="card-header">
@@ -405,15 +407,18 @@
               <h2 class="card-title">Inventory analytics</h2>
               <p class="card-subtitle">Current stock levels across all products</p>
             </div>
-            <span class="period-pill">
-              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Live view
-            </span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button onclick="runAutoProcurement()" style="background-color: #6f42c1; color: white; border: none; padding: 7px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: bold; transition: opacity 0.2s;">
+                  🔮 Run Forecast
+              </button>
+              <span class="period-pill">
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Live view
+              </span>
+            </div>
           </div>
           <div class="chart-wrap">
-            {# Chart.js is fed from Flask's Jinja context — same pattern as original #}
-            <canvas id="inventoryChart" height="100"
-              aria-label="Bar chart showing current stock per product" role="img"></canvas>
+            <canvas id="inventoryChart" height="100" aria-label="Bar chart showing current stock per product" role="img"></canvas>
           </div>
         </article>
 
@@ -513,6 +518,39 @@
 <!-- Toast notification (purely client-side, optional) -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+
+
+<script>
+async function sendToAI() {
+  const promptStr = document.getElementById('ai-prompt').value;
+  if (!promptStr) return; // Don't send empty messages
+  
+  const chatBox = document.getElementById('ai-chat');
+  chatBox.innerHTML += `<div><b>You:</b> ${promptStr}</div>`;
+  document.getElementById('ai-prompt').value = '';
+
+  try {
+      const response = await fetch('/api/copilot', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt: promptStr})
+      });
+      
+      const data = await response.json();
+      
+      // Fallback in case 'reply' is missing
+      const aiMessage = data.reply ? data.reply : JSON.stringify(data);
+      chatBox.innerHTML += `<div><b>Copilot:</b> ${aiMessage}</div>`;
+      
+  } catch (error) {
+      chatBox.innerHTML += `<div><b style="color:red;">Error:</b> Server failed to respond. Check terminal.</div>`;
+  }
+  
+  // Auto-scroll to the bottom of the chat
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+</script>
+
 <!-- ── Scripts ──────────────────────────────────────────────── -->
 <script>
   /* ── Mobile sidebar toggle ── */
@@ -579,6 +617,88 @@
       setTimeout(function () { toast.classList.remove('show'); }, 3000);
     }
   })();
+</script>
+
+<script>
+async function runAutoProcurement() {
+    try {
+        const response = await fetch('/api/auto_procure', { method: 'POST' });
+        const data = await response.json();
+        alert(data.message);
+        
+        if (data.status === 'success') {
+            window.location.href = "/p2p";
+        }
+    } catch (error) {
+        alert("Error connecting to the AI Forecasting engine.");
+    }
+}
+</script>
+
+<!-- Floating Assistant Button -->
+<button onclick="toggleCopilot()" style="position: fixed; bottom: 30px; right: 30px; background-color: #0d6efd; color: white; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; box-shadow: 0 8px 16px rgba(13, 110, 253, 0.3); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
+  ✨
+</button>
+
+<!-- Hidden Sidebar -->
+<div id="copilot-sidebar" style="position: fixed; top: 0; right: -380px; width: 350px; height: 100vh; background-color: #ffffff; border-left: 1px solid #e0e0e0; box-shadow: -5px 0 25px rgba(0,0,0,0.1); z-index: 1001; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  
+  <!-- Sidebar Header -->
+  <div style="background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 20px;">✨</span>
+      <h3 style="margin: 0; font-size: 16px; color: #212529; font-weight: 600;">AJ ERP Copilot</h3>
+    </div>
+    <button onclick="toggleCopilot()" style="background: none; border: none; color: #6c757d; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+  </div>
+
+  <!-- Chat History -->
+  <div id="ai-chat" style="flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 14px;">
+    <div style="color: #6c757d; font-size: 12px; text-align: center; margin-bottom: 10px;">Today</div>
+  </div>
+
+  <!-- Input Area -->
+  <div style="padding: 15px 20px; background-color: #ffffff; border-top: 1px solid #e0e0e0; display: flex; gap: 10px;">
+    <input type="text" id="ai-prompt" placeholder="Ask me anything..." style="flex-grow: 1; padding: 10px 15px; border: 1px solid #ced4da; border-radius: 20px; outline: none; font-size: 14px; background-color: #f8f9fa;" onkeypress="if(event.key === 'Enter') sendToAI()">
+    <button onclick="sendToAI()" style="padding: 10px 20px; background-color: #0d6efd; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 500; font-size: 14px; transition: background-color 0.2s;">Send</button>
+  </div>
+</div>
+
+<!-- Copilot Logic -->
+<script>
+function toggleCopilot() {
+  const sidebar = document.getElementById('copilot-sidebar');
+  sidebar.style.right = sidebar.style.right === '0px' ? '-380px' : '0px';
+}
+
+async function sendToAI() {
+  const promptStr = document.getElementById('ai-prompt').value;
+  if (!promptStr) return; 
+  
+  const chatBox = document.getElementById('ai-chat');
+  // Add User Message
+  chatBox.innerHTML += `<div style="align-self: flex-end; background-color: #0d6efd; color: white; padding: 10px 15px; border-radius: 18px 18px 0 18px; max-width: 85%; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">${promptStr}</div>`;
+  document.getElementById('ai-prompt').value = '';
+
+  try {
+      const response = await fetch('/api/copilot', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt: promptStr})
+      });
+      
+      const data = await response.json();
+      const aiMessage = data.reply ? data.reply : JSON.stringify(data);
+      
+      // Add AI Message
+      chatBox.innerHTML += `<div style="align-self: flex-start; background-color: #f8f9fa; color: #212529; border: 1px solid #e0e0e0; padding: 10px 15px; border-radius: 18px 18px 18px 0; max-width: 85%; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">${aiMessage}</div>`;
+      
+  } catch (error) {
+      chatBox.innerHTML += `<div style="align-self: flex-start; background-color: #f8d7da; color: #842029; padding: 10px 15px; border-radius: 18px; max-width: 85%;">Server disconnected.</div>`;
+  }
+  
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
 </script>
 
 </body>
